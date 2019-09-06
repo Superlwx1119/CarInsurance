@@ -69,6 +69,7 @@
             <el-table
             v-loading="loading"
             @sort-change="sort"
+            @row-click='rowClcik'
             size='mini'
             :height='height'
             :data="tableData"
@@ -88,17 +89,12 @@
                 </el-table-column>
                 <el-table-column
                     fixed
-                    prop="licenseNo"
+                    prop="orid"
                     align="center"
-                    label="车牌号">
-                    <template slot-scope="scpoe">
+                    label="订单号">
+                    <!-- <template slot-scope="scpoe">
                       <p class="cph" @click="rowClcik(scpoe.row,scpoe)">{{scpoe.row.licenseNo}}</p>
-                    </template>
-                </el-table-column>
-                <el-table-column
-                    prop="userId"
-                    align="center"
-                    label="用户ID">
+                    </template> -->
                 </el-table-column>
                 <el-table-column
                     prop="userName"
@@ -109,6 +105,11 @@
                     prop="proStatu"
                     align="center"
                     label="联系进度">
+                </el-table-column>
+                <el-table-column
+                    prop="phone"
+                    align="center"
+                    label="联系号码">
                 </el-table-column>
                 <el-table-column
                     prop="insTime"
@@ -268,6 +269,7 @@ export default {
                 data:this.$Qs.stringify(data)
             }).then(res=>{
                 console.log(res)
+                return
                 // res.data.rows.forEach((item,index)=>{
                 //     if(item.proStatu){
                 //         if(item.proStatu==0){
@@ -315,7 +317,8 @@ export default {
         rowClcik(row,e){
             //选择表格行
             this.$refs.callIN.showOrder(row.orderId,'')
-            this.$refs.callIN.showQuote(row.licenseNo)
+            // this.$refs.callIN.showQuote(row.licenseNo)
+            
             // store.dispatch('showDetail',false)
             // // store.dispatch('toSelect',JSON.parse(this.selectData))
             // window.sessionStorage.setItem('selectData',this.selectData)

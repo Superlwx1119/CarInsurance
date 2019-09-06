@@ -1,4 +1,5 @@
 export default function time(time){
+    
     let y=time.substring(0,4)
     let m=time.substring(4,6)
     let d=time.substring(6,8)
@@ -8,5 +9,8 @@ export default function time(time){
     let newTime=y+'-'+m+'-'+d+' '+h+':'+mm+':'+s
     // let newTime=y+'-'+m+'-'+d
     newTime.toString()
+    if(time==''){
+        newTime=''
+    }
     return newTime
 }

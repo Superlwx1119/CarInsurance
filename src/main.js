@@ -17,6 +17,7 @@ import getUrl from '@/assets/js/getUrl.js';
 import Vant from 'vant';
 import 'vant/lib/index.css';
 import echarts from 'echarts'
+import '@/assets/css/font_fpw4b5xnse9/iconfont.css';
 
 Vue.use(Vant);
 Vue.config.productionTip = false

@@ -42,7 +42,8 @@ function doOprInReq() {
 	var aid = $("#aid").val();//工号
 	var adn = aid; //$("#adn").val();//话务员分机电话号码
 	var apwd = "e10adc3949ba59abbe56e057f20f883e";//工号密码
-	var apihost = 'http://cti254.csgxcf.com/IXServer';//接口地址cti254.csgxcf.com
+	//var apihost = 'http://cti254.csgxcf.com/IXServer';//接口地址cti254.csgxcf.com
+	var apihost = 'http://172.16.1.254/IXServer';//接口地址cti254.csgxcf.com
 	cm_callsate = 0;
 	//断开连接
 	UMO.exit(function(cmd, result){

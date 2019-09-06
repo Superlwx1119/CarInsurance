@@ -8,6 +8,8 @@ export default ({
     gonghao:'',
     first:true,
     doOprInReq:function(phone,fenji,gonghao,duiliehao) {
+        
+       
         //签入
         this.phone=phone
         this.gonghao=gonghao
@@ -19,22 +21,28 @@ export default ({
         var adn = aid; //$("#adn").val();//话务员分机电话号码
         this.fenji=adn;
         var apwd = "e10adc3949ba59abbe56e057f20f883e";//工号密码
-        var apihost = 'http://cti254.csgxcf.com/IXServer';//接口地址cti254.csgxcf.com
+        //var apihost = 'http://cti254.csgxcf.com/IXServer';//接口地址cti254.csgxcf.com
+        var apihost = 'http://172.16.1.254/IXServer';//接口地址cti254.csgxcf.com
         this.cm_callsate = 0;
-        
+        alert('第0步'+aid);
         //断开连接
         UMO.exit(function(cmd, result){
+            console.log('第一步'+result)
             //启动连接
             UMO.start(apihost, bizhost, _this.EvtHandler, eid, "", aid, apwd, adn, function(cmd, result) {
+                console.log('第二步'+result)
                 //0:启动成功 -3:已启动
                 console.log(result)
                 if (result.errno == 0 || result.errno == -3) {
                     _this.cm_logstart=1;
                     //登出原有座席
                     UMO.logout(aid, function(cmd, result){
+                        console.log('第三步'+result)
                         //签入座席
                         UMO.login(aid, acd, -1, false, false, function(cmd, result) {
+                            console.log('第四步'+result)
                             if (result.errno == 0) {
+                                
                                     console.log(phone)
                                     _this.doOprCallOutReq(phone)
                                 // _this.doOprCallOutReq(phone)

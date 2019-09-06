@@ -56,9 +56,9 @@
                     width="45">
                 </el-table-column>
                 <el-table-column
-                    prop="LICENSENO"
+                    prop="LICENSEOWNER"
                     align="center"
-                    label="车牌号">
+                    label="车主姓名">
                 </el-table-column>
                 <el-table-column
                     prop="TYPE"

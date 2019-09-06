@@ -13,8 +13,8 @@
             </div>
         </el-collapse-transition>
         <transition name="slide-fade">
-            <div class="prograss" v-if="role==30&&showPrograss"  >
-                <p @click="dialogVisible">联系进度跟进</p>
+            <div class="prograss" v-if="showPrograss"  >
+                <p @click="dialogVisible(order.phone==''?order.otherphone:order.phone)">联系进度跟进</p>
             </div>
         </transition>
         <!-- <transition name="slide-fade">
@@ -24,12 +24,24 @@
                 <p><el-button size="small" type="danger" @click="logout"><i class="el-icon-error" style="padding-right:10px;"></i>签出</el-button></p>
             </div>
         </transition> -->
-        <el-dialog :title="prograssTitel" :visible.sync="dialogFormVisible">
+        <el-dialog  :title="prograssTitel" width="40%" :visible.sync="dialogFormVisible" >
         <el-form :model="form">
+            <el-form-item label="联系电话" :label-width="formLabelWidth">
+                <div>
+                    <el-input class="test" v-model="form.hiddenPhone"></el-input>
+                </div>
+            </el-form-item>
             <el-form-item label="联系进度" :label-width="formLabelWidth">
-                <el-select v-model="form.prograss" placeholder="请选择联系进度">
-                    <el-option :key='index' v-for="(item,index) of form.state" :label="item.label" :value="item.value"></el-option>
-                </el-select>
+                <el-cascader
+                style="width:100%;"
+                v-model="form.prograss"
+                :options="schedules"
+                clearable
+                :props="{ expandTrigger: 'hover' }"
+                @change="handleChange"></el-cascader>
+                <!-- <el-select v-model="form.prograss" placeholder="请选择联系进度">
+                    <el-option :key='index' :disabled="item.disabled" v-for="(item,index) of form.state" :label="item.label" :value="item.value"></el-option>
+                </el-select> -->
             </el-form-item>
             <el-form-item label="联系方式" :label-width="formLabelWidth">
                 <el-select v-model="ways" placeholder="请选择联系方式">
@@ -50,14 +62,6 @@
                 placeholder="选择日期">
                 </el-date-picker>
             </el-form-item>
-            <!-- <el-form-item label="备注" :label-width="formLabelWidth">
-                <el-input
-                type="textarea"
-                :rows="6"
-                placeholder="请输入内容"
-                v-model="form.note">
-                </el-input>
-            </el-form-item> -->
         </el-form>
         <div v-if="btnShow" slot="footer" class="dialog-footer">
             <el-button @click="insertOrderRecord(false)">取 消</el-button>
@@ -68,7 +72,7 @@
             <el-dialog title="查看图片" :visible.sync="showBigImg">
                 <img class="bigImg" :src="BigImg">
             </el-dialog>
-            <h2>客户信息 <a href="javascript:;"  @click="updateLicenseOwner">保存</a> </h2>
+            <h2>客户信息  <span class="red">(剩余跟进天数:{{order.remainingTime|remainingTime}}天)</span><a href="javascript:;"  @click="updateLicenseOwner">保存</a> </h2>
             <table>
                 <tr>
                     <td><p>客户电话:</p></td>
@@ -77,11 +81,12 @@
                     <el-popover
                         class="popover"
                         placement="right"
-                        width="100"
+                        width="300"
                         trigger="hover">
-                        <el-button style="margin-left:10px;"  type="primary" @click="callOut" size="mini">{{callout}}</el-button>
+                        <el-button style="margin-left:10px;"  type="primary" @click="callOut('bd')" size="mini">{{callout}}</el-button>
+                        <el-button style="margin-left:10px;"  type="primary" @click="callOut('wd')" size="mini">外地号拨出</el-button>
                         <el-button style="margin-left:10px;"  type="danger" @click="stopHere" size="mini">挂断</el-button>
-                        <el-input slot="reference" size="mini" readonly v-model="order.phone"></el-input>
+                        <el-input slot="reference" size="mini" readonly v-model="phoneNew"></el-input>
                         </el-popover>
                     </td>
                     <td><p>备注电话:</p></td>
@@ -89,69 +94,84 @@
                         <!-- <el-input v-if="role!=30"  size="mini" v-model="order.otherphone"></el-input> -->
                         <el-popover
                             placement="right"
-                            width="100"
+                            width="300"
                             trigger="hover">
-                            <el-button style="margin-left:10px;"  type="primary" @click="callHere" size="mini">{{callout}}</el-button>
+                            <el-button style="margin-left:10px;"  type="primary" @click="callHere('bd')" size="mini">{{callout}}</el-button>
+                            <el-button style="margin-left:10px;"  type="primary" @click="callHere('wd')" size="mini">外地号拨出</el-button>
                             <el-button style="margin-left:10px;"  type="danger" @click="stopHere" size="mini">挂断</el-button>
-                            <el-input slot="reference" size="mini" v-model="order.otherphone"></el-input>
+                            <el-input slot="reference" size="mini" readonly v-model="otherPhoneNew"></el-input>
                         </el-popover>
                     </td>
-                    <!-- <td colspan="2"><el-button v-if="role==30" type="primary" @click="callOut" size="mini">{{callout}}</el-button><el-button v-if="role==30" type="danger" @click="callStop" size="mini">挂断</el-button></td> -->
-                    <td  rowspan="3" valign='middle'><p>身份证:</p></td>
-                    <td rowspan="3">
-                        <img v-if="showPic" @click="openImg1($event)" :src="sfzzm">
+                    <td  rowspan="6" valign='top'><p>记事本:</p></td>
+                    <td rowspan="6" colspan="4">
+                        <div class="noteBook">
+                            <div class="note" style='height:251px;width:23vw;'>
+                                <div class="title">
+                                    <i class="el-icon-notebook-1">记事本</i>
+                                    <span @click="saveNote" >保存</span>
+                                </div>
+                                <!-- <div class="content"> -->
+                                    <!-- ssssss -->
+                                    <el-input 
+                                    type="textarea"
+                                    :rows="10"
+                                    placeholder="请输入内容"
+                                    v-model="noteBook"></el-input>
+                                <!-- </div> -->
+                            </div>
+                            <!-- <quill-editor 
+                                v-model="content" 
+                                ref="myQuillEditor" 
+                                :options="editorOption" 
+                                @blur="onEditorBlur($event)" @focus="onEditorFocus($event)"
+                                @change="onEditorChange($event)">
+                            </quill-editor> -->
+                        </div>
+                        <!-- <img v-if="showPic" @click="openImg1($event)" :src="sfzzm"> -->
                     </td>
-                    <td  rowspan="3">
+                    <!-- <td  rowspan="3">
                         <img v-if="showPic"  @click="openImg1($event)" :src="sfzfm">
-                    </td>
+                    </td> -->
                     <td></td>
-                    <td><p style="text-align:left">下载证件:</p></td>
+                    <!-- <td><p style="text-align:left">下载证件:</p></td> -->
                 </tr>
-                <!-- <tr>
-                    <td><el-button v-if="role==30" type="primary" @click="callOutNew" size="mini">{{callout}}</el-button><el-button v-if="role==30" type="danger" @click="callStop" size="mini">挂断</el-button></td>
-                    <td><el-button v-if="role==30" type="primary" @click="callHere" size="mini">{{callout}}</el-button><el-button v-if="role==30" type="danger" @click="stopHere" size="mini">挂断</el-button></td>
-                </tr> -->
                 <tr>
                     <td><p>客户名称:</p></td>
                     <td><el-input size="mini" v-model="order.licenseOwner"></el-input></td>
-                    <td><p>返款方式:</p></td>
+                    <td><p>性别:</p></td>
                     <td>
-                        <el-select size="mini" disabled v-model="rebate.remitType" placeholder="请选择">
-                            <el-option
-                            v-for="item in customerMsg.payWaies"
-                            :key="item"
-                            :label="item"
-                            :value="item">
-                            </el-option>
+                        <el-select size="mini" disabled v-model="order.licenseSex" placeholder="请选择">
+                            <el-option label="暂无" value="0"></el-option>
+                            <el-option label="男" value="1"></el-option>
+                            <el-option label="女" value="2"></el-option>
                         </el-select>
                     </td>
                     <td></td>
-                    
-                    <td rowspan="3" valign="top" >
+                    <!-- <td rowspan="3" valign="top" >
                         <img :src="imageUrls" @click="openImg1($event)" v-show="role==30||role==1">
                         <van-uploader class="spanUP" v-show="role==40" :disabled="role==30" :after-read="onRead4" accept="image/gif, image/jpeg" multiple>
                             <img v-if="imageUrl"  :src="imageUrls" class="avatar">
                             <i v-else class="el-icon-plus avatar-uploader-icon plus"></i>
                         </van-uploader>
                         <a href="javascript:;" id="doLoadQr" @click="doLoadQr"><el-button type="primary"  v-if="role==30||role==1" size="small">下载单据</el-button></a>
-                    </td>
+                    </td> -->
                     <td style="visibility: hidden;"><el-input size="mini" v-model="name"></el-input></td>
                 </tr>
                 <tr>
-                    <td><p>返款账号:</p></td>
-                    <td><el-input size="mini" disabled v-model="rebate.remitAccount"></el-input></td>
-                    <td><p>返款金额:</p></td>
-                    <td><el-input size="mini" disabled v-model="rebate.remitSum"></el-input></td>
+                    <td><p>年龄:</p></td>
+                    <td><el-input size="mini" readonly v-model="order.clientAge"></el-input></td>
+                    <td><p>身份证:</p></td>
+                    <td><el-input size="mini" v-model="data.credentislasNum"></el-input></td>
                     
                 </tr>
                 <tr>
                     <td valign="top"><p>匹配电话:</p></td>
                     <td colspan="3"  class="borderPhone">
                         <ul>
-                            <li v-for="(item,index) in customerMsg.note" :key="index">
-                                <b v-if="item!='无匹配结果'" @click="copyPhone(item.dh)">{{item.dh}}</b>
+                            <li v-for="(item,index) in customerMsg.note" :key="index" @mousemove="item.addShow=true" @mouseleave="item.addShow=false">
+                                <b v-if="item!='无匹配结果'" @click="copyPhone(item.dh)">{{item.dh|hiddenPhone}}</b>
                                 <b v-else>无匹配结果</b>
-                                <el-select v-if="item!='无匹配结果'" size="mini" @change="changeType(index,item)" v-model="customerMsg.selectData[index]" placeholder="请选择">
+                                <el-select v-if="item!='无匹配结果'" class="result" size="mini" @change="changeType(index,item,data.carVin)" v-model="customerMsg.selectData[index]" placeholder="是否本人">
                                     <el-option
                                     v-for="item in customerMsg.selects"
                                     :key="item.value"
@@ -159,43 +179,38 @@
                                     :value="item.value">
                                     </el-option>
                                 </el-select>
+                                <el-select v-if="item!='无匹配结果'" class="result" size="mini" @change="changeType(index,item,data.carVin)" v-model="customerMsg.local[index]" placeholder="号码归属">
+                                    <el-option label="本地" value="0"></el-option>
+                                    <el-option label="外地" value="1"></el-option>
+                                </el-select>
+                                <p v-show="item.addShow&&item!='无匹配结果'" @click="dialogVisible(item.dh)">添加联系进度</p>
                             </li>
                         </ul>
-                        
-                        <!-- <el-input
-                        type="textarea"
-                        size="mini"
-                        readonly
-                        :rows="6"
-                        v-model="customerMsg.note">
-                        </el-input> -->
                     </td>
-                    <td   valign='middle'><p>行驶证:</p></td>
-                    <td class="img" >
+                    <!-- <td   valign='middle'><p>行驶证:</p></td> -->
+                    <!-- <td class="img" >
                         <img v-if="showPic" @click="openImg1($event)" :src="xszzm">
                     </td>
                     <td class="img"  >
                         <img v-if="showPic" @click="openImg1($event)" :src="xszfm">
-                    </td>
+                    </td> -->
                 </tr>
-                <tr>
+                <!-- <tr>
                     <td></td>
-                    <td>
-                        <!-- <el-button @click="getPhones" type="primary" size="small">点击匹配</el-button> -->
-                        </td>
+                    <td></td>
                     <td></td>
                     <td></td>
                     <td></td>
                     <td>
                         <p><a href="javascript:;" id="downLoadPic"  @click="downLoadPic"><el-button size="small"  v-if="role==40||role==1" type="primary">全部下载<i class="el-icon-download"></i></el-button></a></p>
                     </td>
-                </tr>
+                </tr> -->
                 <!-- <tr>
                     <td><p>客户备注2:</p></td>
                     <td colspan="3"><el-input size="mini" v-model="name"></el-input></td>
                 </tr> -->
             </table>
-            <h2>补充信息  </h2>
+            <!-- <h2>补充信息  </h2>
             <table>
                 <tr>
                     <td><p>姓名:</p></td>
@@ -217,7 +232,7 @@
                         <el-input size="mini" readonly v-model="order.sidePhone2"></el-input>
                     </td>
                 </tr>
-            </table>
+            </table> -->
             <h2>车辆信息 <a href="javascript:;"  @click="saveCar">保存</a> </h2>
             <table>
                 <tr>
@@ -258,7 +273,7 @@
                     <td><p>排量(L):</p></td>
                     <td><el-input size="mini" v-model="data.exhaustScale"></el-input></td>
                 </tr>
-                <tr>
+                <!-- <tr>
                     <td><p>过户车:</p></td>
                     <td>
                         <el-radio v-model="carMsg.ifchange" label="1">是</el-radio>
@@ -269,7 +284,7 @@
                         <el-radio v-model="carMsg.radio" label="1">是</el-radio>
                         <el-radio v-model="carMsg.radio" label="2">否</el-radio>
                     </td>
-                </tr>
+                </tr> -->
                 <tr>
                     <td><p>备注:</p></td>
                     <td colspan="3"><el-input disabled size="mini" v-model="carMsg.note"></el-input></td>
@@ -278,7 +293,7 @@
         </div>
         <div class="tabsMsg">
             <el-tabs v-model="activeName2" type="card" @tab-click="handleClick">
-                <el-tab-pane label="上年投保信息" name="first" class="proYear">
+                <!-- <el-tab-pane label="上年投保信息" name="first" class="proYear">
                     <h2>上年投保信息<a href="javascript:;"  @click="saveCarins">保存</a></h2>
                     <table class="table">
                         <tr>
@@ -430,26 +445,10 @@
                                 <td :class="lastYearData.sanZheJieJiaRi==0||''?'red':''">{{lastYearData.sanZheJieJiaRi|montyType}}</td>
                                 <td>{{lastYearData.sanZheJieJiaRi}}</td>
                             </tr>
-                            <!-- <tr>
-                                <td>交强险保费合计</td>
-                                <td colspan="2">{{lastYearData.forceTotal}}</td>
-                            </tr>
-                            <tr >
-                                <td>商业险保费合计</td>
-                                <td colspan="2">{{lastYearData.bizTotal}}</td>
-                            </tr>
-                            <tr>
-                                <td>车船税合计</td>
-                                <td colspan="2">{{lastYearData.chechuanshui}}</td>
-                            </tr>
-                            <tr>
-                                <td>保费总金额</td>
-                                <td colspan="2">{{lastYearData.zongjine}}</td>
-                            </tr> -->
                         </tbody>
                     </table>
-                </el-tab-pane>
-                <el-tab-pane label="报价信息" name="second" class="offer">
+                </el-tab-pane> -->
+                <!-- <el-tab-pane label="报价信息" name="second" class="offer">
                     <h2>关系人信息 <span class="red">(温馨提示：请确认关系人信息，如有误请修改后重新报价)</span> <a href="javascript:;" @click="saveQuote" >保存</a> </h2>
                     <div>
                         <div  class="ownerMsg">
@@ -704,7 +703,7 @@
                             </el-col>
                         </el-row>
                     </div>
-                </el-tab-pane>
+                </el-tab-pane> -->
                 <el-tab-pane label="联系进度" class="prograssTable" name="third" > 
                     <el-table
                     @row-click='rowClick'
@@ -719,11 +718,14 @@
                         label="联系类型">
                     </el-table-column> -->
                     <el-table-column
-                        prop="contactWay"
-                        label="联系方式">
+                        prop="phone"
+                        label="联系电话">
+                        <template slot-scope="scpoe">
+                            <p >{{scpoe.row.phone|hiddenPhone}}</p>
+                        </template>
                     </el-table-column>
                     <el-table-column
-                        prop="proStatu"
+                        prop="proStatuWithDic"
                         label="进度状态">
                     </el-table-column>
                     <el-table-column
@@ -739,9 +741,17 @@
                         show-overflow-tooltip
                         label="备注">
                     </el-table-column>
+                    <el-table-column
+                        type="recording"
+                        prop="recording"
+                        label="通话录音">
+                        <template slot-scope="scpoe">
+                            <a href="javascript:;" @click="recording(scpoe.row.recordId)">调听</a>
+                        </template>
+                    </el-table-column>
                     </el-table>
                 </el-tab-pane>
-                <el-tab-pane label="配送方式" class="ways"  name="four">
+                <!-- <el-tab-pane label="配送方式" class="ways"  name="four">
                     <h2>配送信息 <a href="javascript:;"  >保存</a> </h2>
                     <div>
                         <table style="width:100%;padding:10px;font-size:14px;">
@@ -765,10 +775,10 @@
                             </tr>
                         </table>
                     </div>
-                </el-tab-pane>
+                </el-tab-pane> -->
             </el-tabs>
         </div>
-        <div class="btn">
+        <div class="btn" v-show="false">
             <div >
                 <el-button  class="refresh"  @click="syncOrder"><i class="el-icon-refresh"></i>刷新续保</el-button>
                 <el-button  class="edit" @click="reOffer"><i class="el-icon-edit"></i>{{order.orderStatus==''?'去报价':'重新报价'}}</el-button>
@@ -785,6 +795,9 @@
                 <!-- <el-button  type="primary" @click="nextPage"><i class="el-icon-d-arrow-right"></i>下一页订单</el-button> -->
             </div>
         </div>
+        <el-dialog title="播放录音" width="40%" :before-close="handleClose" :visible.sync="playRecording">
+            <div v-html="recordingSrc">{{recordingSrc}}</div>
+        </el-dialog>
         <transition name="el-fade-in">
             <ShareOffer :orderId="orderId" :clientId='id' :khid="khid" :data="order" :clientCarins='clientCarins' v-if="showShare" @close='close'/>
         </transition>
@@ -798,6 +811,10 @@
 </template>
 
 <script>
+import { quillEditor } from "vue-quill-editor"; //调用编辑器
+import 'quill/dist/quill.core.css';
+import 'quill/dist/quill.snow.css';
+import 'quill/dist/quill.bubble.css';
 import ShareOffer from './ShareOffer'
 import ReOffer from './ReOffer'
 import OfferAuto from './OfferAuto'
@@ -812,6 +829,27 @@ import {UMO} from '@/assets/js/UniMediaAPI.js'
 export default {
     name:'SalesDetailRight',
     filters:{
+        remainingTime(val){
+            if(val==''){
+                return '--'
+            }else{
+                return val
+            }
+            
+        },
+        hiddenPhone(val){
+            let role=JSON.parse(window.sessionStorage.getItem('role')).userrole
+            if(role==30){
+                if(val==''){
+                    return val
+                }else{
+                    val=val.substring(0,3)+'****'+val.substring(7,val.length)
+                    return val
+                }
+            }else{
+                return val
+            }
+        },
         tofixed(val){
             return Number(val).toFixed(2)
         },
@@ -887,13 +925,22 @@ export default {
         khid:String,
         getdata:Object,
         textarea:String,
-        phoneCus:String
+        phoneCus:String,
     },
     components:{
-        ShareOffer,ReOffer,OfferAuto
+        ShareOffer,ReOffer,OfferAuto,quillEditor
     },
     data(){
         return{
+            tanSelf:false,
+            playRecording:false,
+            recordingSrc:'',
+            schedules:[],
+            addShow:false,
+            noteBook:'',
+            statusNumber:'',
+            content: `<p></p><p><br></p><ol><li><strong><em>Or drag/paste an image here.</em></strong></li><li><strong><em>rerew</em></strong></li><li><strong><em>rtrete</em></strong></li><li><strong><em>tytrytr</em></strong></li><li><strong><em>uytu</em></strong></li></ol>`,
+            editorOption: {},
             token:'',
             payIt:'',
             payWays:[{label:"我方",value:'1'},{label:"客户",value:'0'}],
@@ -916,6 +963,351 @@ export default {
             gonghao:'',
             fenji:'',
             duilie:'',
+            cm_callsate:0,
+            newCont:'',
+            otherphone:'',
+            showPic:true,
+            yser:false,
+            phoneNew:'',
+            otherPhoneNew:'',
+            detail:false,
+            progressTable:[],
+            proState:'',
+            contKind:'',
+            hebao:false,
+            ways:'',
+            dakuan:false,
+            url:'',
+            callout:'拨出',
+            calling:false,
+            customerMsg:{
+                select:'',
+                selectData:[''],
+                selects:[{label:'本人',value:'0'},{label:'非本人',value:'1'},{label:'停机/关机',value:'2'},{label:'拒接/未接',value:'3'}],
+                note:'',
+                name:'',
+                phone:'',
+                account:'',
+                money:'',
+                payWay:'支付宝',
+                payWaies:['支付宝','微信','银行卡']
+            },
+            carMsg:{
+                chassisNum:'',
+                engineNum:'',
+                registeredDate:'',
+                models:'',
+                purchasePrice:'',
+                brand:'',
+                power:'',
+                seat:'',
+                plateNum:'',
+                ifchange:'2',
+                radio:'2',
+                note:'',
+            },
+            offerMsg:{
+                jqxqbrq:'',
+                syxqbrq:'',
+                ownerSame:null,
+                policyHolder:null,
+                ownername:'',
+                buyName:'',
+                Holdername:'',
+                ownerId:'',
+                HolderId:'',
+                buyId:'',
+                documentTypeOwner:'',
+                documentTypeHolder:'',
+                documentTypeBuy:'',
+                documentTypes:['身份证','组织机构代码','营业执照/统一社会信用代码','港澳居民来往内地通行证','港澳身份证'],
+
+            },
+            lastYear:{
+                insuranceCompany:'',
+                name:'',
+                Holdername:'',
+                businessLimit:'',
+                mandatoryLimit:'',
+                documentTypeHolder:'',
+                businessNum:'',
+                HolderId:'',
+                mandatoryNum:'',
+            },
+            imageUrl: null,
+            lastYearData:{},
+            name:'',
+            checked:'',
+            active:'',
+            activeName2:'third',
+            showShare:false,
+            licenseType:[],
+            showReOffer:false,
+            dialogTableVisible: false,
+            role:'',
+            dialogFormVisible: false,
+            form: {
+                prograss:[],
+                state:[{label:'无人接听',value:0},{label:'开场白',value:1},{label:'2',value:2},{label:'3',value:3},{label:'4',value:4},{label:'5',value:5}],
+                date:'',
+                note:'',
+                phone:'',
+                hiddenPhone:''
+            },
+            formLabelWidth: '120px',
+            showBigImg:false,
+            BigImg:'',
+            imageUrls:'',
+            sfzzm:'',
+            sfzfm:'',
+            xszzm:'',
+            xszfm:'',
+            cm_login:'',
+            callin:false,
+            callIngPhone:'',
+            EvtHandler:{// 就绪通知
+                that:this,
+                onReadyState : (status) =>{
+                    //console.log(status,this.cm_login)
+                    if(status == 0 && this.cm_login!=2){//网络判断时系统自动判断重连
+                        // if(window.confirm('网络异常，是否需要重新签入？')){
+                        //     let fenji=JSON.parse(window.sessionStorage.getItem('role')).hcall_nodid//分机号
+                        //     let gonghao=JSON.parse(window.sessionStorage.getItem('role')).hcall_jobno//工号
+                        //     let duilie=JSON.parse(window.sessionStorage.getItem('role')).hcall_queueid//队列号
+                        //     this.doOprInReq('9'+this.order.otherphone.toString(),fenji,gonghao,duilie)
+                        // }
+                    }
+                },
+                //来话通知
+                onCallincome : (ano, bno, uud) =>{
+                    // console.log(ano, bno, uud,'来话')
+                    //console.log((bno.indexOf('9'),ano))
+                    if(ano.length==12){
+                        this.callIngPhone=ano.substring(1,ano.length)
+                    }else{
+                        this.callIngPhone=ano
+                    }
+                    if(this.role==30){
+                        this.callIngPhoneHidden=this.callIngPhone.substring(0,3)+'****'+this.callIngPhone.substring(7,this.callIngPhone.length)
+                        this.form.callIngPhoneHidden=this.callIngPhone.substring(0,3)+'****'+this.callIngPhone.substring(7,this.callIngPhone.length)
+                    }else{
+                        this.callIngPhoneHidden=this.callIngPhone
+                        this.form.callIngPhoneHidden=this.callIngPhone
+                    }
+                    this.form.phone=this.callIngPhone
+                    this.form.hiddenPhone=this.callIngPhoneHidden
+                    let str=''
+                    this.schedules.forEach(item=>{
+                        item.children.forEach(child=>{
+                            if(this.order.lifeSchedule==child.value){
+                                str=item.label
+                            }
+                        })
+                    })
+                    this.form.prograss=[str,this.order.lifeSchedule]
+                    if(uud&&uud!=''){
+                        this.callNowState='正在拨号...'
+                    }else{
+                        // alert(ano)
+                        // this.$notify({
+                        //     title: '提示!',
+                        //     message: '提示!订单电话打入,即将跳转订单!',
+                        //     type: 'warning'
+                        // });
+                        this.$emit('callIn',ano)//查询订单 
+                        if(uud.length<100||uud==''){
+                            this.calling=true
+                            this.callin=true
+                            let min=0
+                            let sec=0
+                            // this.timerCall=setInterval(()=>{
+                            //     sec++
+                            //     if(sec>=60){
+                            //         sec=0
+                            //         min++
+                            //     }else if(sec<10){
+                            //         sec='0'+Number(sec)
+                            //     }else if(sec==0){
+                            //         sec='00'
+                            //     }
+                            //     if(min<10){
+                            //         min='0'+Number(min)
+                            //     }
+                            //     this.callingTime=min+' : '+sec
+                            // },1000)
+                            this.callNowState='来电:'+ano
+                            setTimeout(this.getcdrid(ano, bno), 1000);// 录音
+                        }
+                    }
+                    // $("#ano").val(ano);
+                    // $("#bno").val(bno);
+                    // setPhoneButtonStatus(true, false, true, true, true, true, "状态:通话中");
+                    //来电号码历史记录
+                    /*if(ano!=$("#aid").val()){
+                        //showHistoryCall(bno);
+                        //$("#callinhistory_btn").disabled = false;
+                    }*/
+                },
+                //呼出通话通知
+                onTalked : (ano, bno, uud) =>{
+                    this.doSetOprBusyReq()//示忙
+                    // console.log(ano, bno, uud , uud.length,'呼出')
+                    // this.callin=true
+                    this.calling=true
+                    if(uud.length<100){
+                        this.callin=true
+                        let min=0
+                        let sec=0
+                        // this.timerCall=setInterval(()=>{
+                        //     sec++
+                        //     if(sec>=60){
+                        //         sec=0
+                        //         min++
+                        //     }else if(sec<10){
+                        //         sec='0'+Number(sec)
+                        //     }else if(sec==0){
+                        //         sec='00'
+                        //     }
+                        //     if(min<10){
+                        //         min='0'+Number(min)
+                        //     }
+                        //     this.callingTime=min+' : '+sec
+                        // },1000)
+                        //console.log(bno.length,bno)
+                        if(bno.length==13){
+                            this.callIngPhone=bno.substring(2,bno.length)
+                        }else{
+                            this.callIngPhone=bno.substring(1,bno.length)
+                        }
+                        if(this.role==30){
+                            this.callIngPhoneHidden=this.callIngPhone.substring(0,3)+'****'+this.callIngPhone.substring(7,this.callIngPhone.length)
+                            this.form.callIngPhoneHidden=this.callIngPhone.substring(0,3)+'****'+this.callIngPhone.substring(7,this.callIngPhone.length)
+                        }else{
+                            this.callIngPhoneHidden=this.callIngPhone
+                            this.form.callIngPhoneHidden=this.callIngPhone
+                        }
+                        this.callNowState='呼出:'+this.callIngPhoneHidden
+                       
+                        setTimeout(this.getcdrid(ano, bno), 1000);// 录音
+                    }
+                },
+                //振铃停止通知
+                onRingStoped : () =>{
+                    // //console.log('stop')
+                    this.stopHere()
+                },
+                // 挂机通知
+                onHookChanged : (status) =>{
+                    // alert(status);
+                    let that=this
+                    that.doSetOprFreeReq();//示闲
+                    // console.log(status,'挂机')
+                    if (status == 1 || status == 3 || status == 4) {
+                        this.cm_callsate = 0;
+                        // this.that.a.doSetOprDropReq(this.that.a.gonghao);
+                        // 坐席挂机
+                        if (status == 1) {
+                            that.callNowState='已挂断...'
+                            //console.log(this.timerCall)
+                            clearInterval(that.timerCall)
+                            that.callingTime='00 : 00'
+                            //console.log(this.callin)
+                            // if(this.callin){
+                            //     that.calling=false
+                            // }else{
+                                // setTimeout(()=>{
+                                    that.calling=false
+                                    that.dialogFormVisible=true
+                                    
+                                    that.prograssTitel='添加联系进度'
+                                    that.btnShow=true
+                                    that.tanSelf=true
+                                    that.insertRecord()
+                                // },300)
+                            // }
+                        }
+                    }
+                    if (status == 2) {
+                        var ano = that.fenji;
+                        var bno = that.order.otherphone;
+                        setTimeout(that.getcdrid(ano, bno), 1000);// 录音
+                    }
+                },
+                // 话务员状态通知
+                onAgentChanged : (status) =>{
+                    // //console.log(status)
+                    // if(status==4){
+                    //     //正在工作
+                    //     this.callNowState='等待接听...'
+                    // }
+                },
+                // 异步操作结束通知
+                onAsyncFinished : (atype, taskid, ret, desc) =>{
+                    console.log(atype, taskid, ret, desc,'操作')
+                    let that=this
+                    if(ret==0&&atype==8){
+                        this.callNowState='正在通话...'
+                        let min=0
+                        let sec=0
+                        // that.timerCall=setInterval(()=>{
+                        //     sec++
+                        //     if(sec>=60){
+                        //         sec=0
+                        //         min++
+                        //     }else if(sec<10){
+                        //         sec='0'+Number(sec)
+                        //     }else if(sec==0){
+                        //         sec='00'
+                        //     }
+                        //     if(min<10){
+                        //         min='0'+Number(min)
+                        //     }
+                        //     this.callingTime=min+' : '+sec
+                        // },1000)
+                        this.callin=false
+                        var ano = this.fenji;
+                        var bno = this.order.otherphone;
+                        setTimeout(that.getcdrid(ano, bno), 1000);
+                    }
+                    if(ret==2&&atype==8){
+                        this.callNowState='等待接听...'
+                    }
+                },
+            
+                onAllBusy : function(status, acd, quelen) {
+                    // //console.log(status, acd, quelen)
+                },
+                // 队列长度通知
+                onQuelen : function(acd, quelen) {
+                    // //console.log(acd, quelen)
+                    showEvent("onQuelen: acd=" + acd + " quelen=" + quelen);
+                },
+                // 短信到达通知
+                onSmsincome : function(dtime, from, content, slot) {
+                    showEvent("onSmsincome: dtime=" + dtime + " from=" + from + " content="
+                            + content + " slot=" + slot);
+                },
+                // 操作回调通知
+                onOperCallback : function(flowid, callid, cdrid, direction, teleno, time,
+                        state) {
+                    showEvent("onOperCallback: : flowid=" + flowid + " callid=" + callid
+                            + " cdrid=" + cdrid + " direction=" + direction + " teleno="
+                            + teleno + " time=" + time + " state=" + state)
+                },
+                // 快速拨号回调通知
+                onSpeedCallback : function(flowid, callid, cdrid, direction, teleno, time,
+                        state, desc, sessionid) {
+                    showEvent("onSpeedCallback: flowid=" + flowid + " callid=" + callid
+                            + " cdrid=" + cdrid + " direction=" + direction + " teleno="
+                            + teleno + " time=" + time + " state=" + state + " desc="
+                            + desc + " sessionid=" + sessionid);
+                },
+            
+                onTextMessage : function(fromaid, chatmode, text) {
+                    showEvent("onTextMessage: fromaid=" + fromaid + " chatmode=" + chatmode
+                            + " content=" + text);
+                }
+            },
             UMO : {
                 _apihost : "/DeskServer",
                 _bizhost : "", //Reserved
@@ -2418,8 +2810,8 @@ export default {
                 * @param cb
                 * @param w
                 */
-                dataoper : (data, realm, mode, flds, vals, where, group, order,
-                        size, idx, cb, w)=> {
+                dataoper : function(data, realm, mode, flds, vals, where, group, order,
+                        size, idx, cb, w) {
                     var cmd = "/storage/data/oper";
                     var args = "dom=" + this.UMO._dom + "&token=" + this.UMO._token + "&data=" + data
                             + "&realm=" + realm + "&m=" + mode + "&f="
@@ -3303,342 +3695,92 @@ export default {
                 MSG_ALREADYSTART : "已经启动请先停止",
                 MSG_NONE : "无"
             },
-            cm_callsate:0,
-            newCont:'',
-            otherphone:'',
-            showPic:true,
-            yser:false,
-            phoneNew:'',
-            detail:false,
-            progressTable:[],
-            proState:'',
-            contKind:'',
-            hebao:false,
-            ways:'',
-            dakuan:false,
-            url:'',
-            callout:'拨出',
-            calling:false,
-            customerMsg:{
-                select:'',
-                selectData:[''],
-                selects:[{label:'本人',value:'0'},{label:'非本人',value:'1'},{label:'停机/关机',value:'2'},{label:'拒接/未接',value:'3'}],
-                note:'',
-                name:'',
-                phone:'',
-                account:'',
-                money:'',
-                payWay:'支付宝',
-                payWaies:['支付宝','微信','银行卡']
-            },
-            carMsg:{
-                chassisNum:'',
-                engineNum:'',
-                registeredDate:'',
-                models:'',
-                purchasePrice:'',
-                brand:'',
-                power:'',
-                seat:'',
-                plateNum:'',
-                ifchange:'2',
-                radio:'2',
-                note:'',
-            },
-            offerMsg:{
-                jqxqbrq:'',
-                syxqbrq:'',
-                ownerSame:null,
-                policyHolder:null,
-                ownername:'',
-                buyName:'',
-                Holdername:'',
-                ownerId:'',
-                HolderId:'',
-                buyId:'',
-                documentTypeOwner:'',
-                documentTypeHolder:'',
-                documentTypeBuy:'',
-                documentTypes:['身份证','组织机构代码','营业执照/统一社会信用代码','港澳居民来往内地通行证','港澳身份证'],
-
-            },
-            lastYear:{
-                insuranceCompany:'',
-                name:'',
-                Holdername:'',
-                businessLimit:'',
-                mandatoryLimit:'',
-                documentTypeHolder:'',
-                businessNum:'',
-                HolderId:'',
-                mandatoryNum:'',
-            },
-            imageUrl: null,
-            lastYearData:{},
-            name:'',
-            checked:'',
-            active:'',
-            activeName2:'second',
-            showShare:false,
-            licenseType:[],
-            showReOffer:false,
-            dialogTableVisible: false,
-            role:'',
-            dialogFormVisible: false,
-            form: {
-                prograss:'',
-                state:[],
-                date:'',
-                note:''
-            },
-            formLabelWidth: '120px',
-            showBigImg:false,
-            BigImg:'',
-            imageUrls:'',
-            sfzzm:'',
-            sfzfm:'',
-            xszzm:'',
-            xszfm:'',
-            cm_login:'',
-            callin:false,
-            EvtHandler:{// 就绪通知
-                that:this,
-                onReadyState : (status) =>{
-                    // console.log(status,this.cm_login)
-                    if(status == 0 && this.cm_login!=2){//网络判断时系统自动判断重连
-                        // if(window.confirm('网络异常，是否需要重新签入？')){
-                        //     let fenji=JSON.parse(window.sessionStorage.getItem('role')).hcall_nodid//分机号
-                        //     let gonghao=JSON.parse(window.sessionStorage.getItem('role')).hcall_jobno//工号
-                        //     let duilie=JSON.parse(window.sessionStorage.getItem('role')).hcall_queueid//队列号
-                        //     this.doOprInReq(this.order.otherphone.toString(),fenji,gonghao,duilie)
-                        // }
-                    }
-                },
-                //来话通知
-                onCallincome : (ano, bno, uud) =>{
-                    console.log(ano, bno, uud)
-                    if(uud&&uud!=''){
-                        this.callNowState='正在拨号...'
-                    }else{
-                        // alert(ano)
-                        this.$notify({
-                            title: '提示!',
-                            message: '提示!订单电话打入,即将跳转订单!',
-                            type: 'warning'
-                        });
-                        this.$emit('callIn',ano) 
-                        // if(uud.length<100||uud==''){
-                        //     this.calling=true
-                        //     this.callin=true
-                        //     let min=0
-                        //     let sec=0
-                        //     this.timerCall=setInterval(()=>{
-                        //         sec++
-                        //         if(sec>=60){
-                        //             sec=0
-                        //             min++
-                        //         }else if(sec<10){
-                        //             sec='0'+Number(sec)
-                        //         }else if(sec==0){
-                        //             sec='00'
-                        //         }
-                        //         if(min<10){
-                        //             min='0'+Number(min)
-                        //         }
-                        //         this.callingTime=min+' : '+sec
-                        //     },1000)
-                        //     this.callNowState='来电1:'+ano
-                        //     setTimeout(this.getcdrid(ano, bno), 1000);// 录音
-                        // }
-                    }
-                    // $("#ano").val(ano);
-                    // $("#bno").val(bno);
-                    // setPhoneButtonStatus(true, false, true, true, true, true, "状态:通话中");
-                    //来电号码历史记录
-                    /*if(ano!=$("#aid").val()){
-                        //showHistoryCall(bno);
-                        //$("#callinhistory_btn").disabled = false;
-                    }*/
-                },
-                //呼出通话通知
-                onTalked : (ano, bno, uud) =>{
-                    console.log(ano, bno, uud.length)
-                    // this.callin=true
-                    this.calling=true
-                    if(uud.length<100){
-                        this.callin=true
-                        let min=0
-                        let sec=0
-                        this.timerCall=setInterval(()=>{
-                            sec++
-                            if(sec>=60){
-                                sec=0
-                                min++
-                            }else if(sec<10){
-                                sec='0'+Number(sec)
-                            }else if(sec==0){
-                                sec='00'
-                            }
-                            if(min<10){
-                                min='0'+Number(min)
-                            }
-                            this.callingTime=min+' : '+sec
-                        },1000)
-                        this.callNowState='来电:'+ano
-                        setTimeout(this.getcdrid(ano, bno), 1000);// 录音
-                    }
-                },
-                //振铃停止通知
-                onRingStoped : () =>{
-                    // console.log('stop')
-                    this.stopHere()
-                },
-                // 挂机通知
-                onHookChanged : (status) =>{
-                    // alert(status);
-                    let that=this
-                    console.log(status)
-                    if (status == 1 || status == 3 || status == 4) {
-                        this.cm_callsate = 0;
-                        // this.that.a.doSetOprDropReq(this.that.a.gonghao);
-                        // 坐席挂机
-                        if (status == 1) {
-                            // var aid = that.gonghao;// 工号
-                            // var ano = '88693050';// 主叫
-                            // if ("0" != $('#pStatus').val()) {
-                            //     $('#pStatus').val(1);
-                            //     var phoneverify_id = $('#phoneverify_id').val();// 单号
-                            //     $('#phoneOut_orid').val($('#phone_orid').val());// 赋值正在播出
-                            //     $('#phoneOutverify_id').val(phoneverify_id);// 赋值正在拨出
-                            // }
-                            // var querys = {
-                            //     'wb_orid' : $('#phoneOut_orid').val(),// 当前单号
-                            //     'wb_OrderId' : $('#phoneOutverify_id').val(),// 当前单号
-                            //     'wb_CrPhoneUrl' : '',
-                            //     'wb_CrType' : $('#pStatus').val(), // 状态
-                            //     'wb_CrContent' : ano, // 主叫
-                            //     'wb_CrRemark' : '',
-                            //     'hcall_CdrId' : $('#cdrid').val(),
-                            //     "contType" : $('#contType').val()
-                            // };
-                            // console.log(querys);
-                            
-                            that.callNowState='已挂断...'
-                            console.log(this.timerCall)
-                            clearInterval(that.timerCall)
-                            that.callingTime='00 : 00'
-                            if(this.callin){
-                                that.calling=false
-                            }else{
-                                setTimeout(()=>{
-                                    that.calling=false
-                                    that.dialogFormVisible=true
-                                    that.prograssTitel='添加联系进度'
-                                    that.btnShow=true
-                                },1000)
-                            }
-                            // document.getElementById(querys.wb_OrderId).contentWindow.setCallInfo(querys);
-                            // $('#pStatus').val(1);// 呼入
-                        }
-                    }
-                    if (status == 2) {
-                        var ano = that.fenji;
-                        var bno = that.order.otherphone;
-                        setTimeout(that.getcdrid(ano, bno), 1000);// 录音
-                    }
-                },
-                // 话务员状态通知
-                onAgentChanged : (status) =>{
-                    // console.log(status)
-                    // if(status==4){
-                    //     //正在工作
-                    //     this.callNowState='等待接听...'
-                    // }
-                },
-                // 异步操作结束通知
-                onAsyncFinished : (atype, taskid, ret, desc) =>{
-                    // console.log(atype, taskid, ret, desc)
-                    let that=this
-                    if(ret==0&&atype==8){
-                        this.callNowState='正在通话...'
-                        let min=0
-                        let sec=0
-                        that.timerCall=setInterval(()=>{
-                            sec++
-                            if(sec>=60){
-                                sec=0
-                                min++
-                            }else if(sec<10){
-                                sec='0'+Number(sec)
-                            }else if(sec==0){
-                                sec='00'
-                            }
-                            if(min<10){
-                                min='0'+Number(min)
-                            }
-                            this.callingTime=min+' : '+sec
-                        },1000)
-                        this.callin=false
-                        var ano = this.fenji;
-                        var bno = this.order.otherphone;
-                        setTimeout(that.getcdrid(ano, bno), 1000);
-                    }
-                    if(ret==2&&atype==8){
-                        this.callNowState='等待接听...'
-                    }
-                },
-            
-                onAllBusy : function(status, acd, quelen) {
-                    // console.log(status, acd, quelen)
-                },
-                // 队列长度通知
-                onQuelen : function(acd, quelen) {
-                    // console.log(acd, quelen)
-                    showEvent("onQuelen: acd=" + acd + " quelen=" + quelen);
-                },
-                // 短信到达通知
-                onSmsincome : function(dtime, from, content, slot) {
-                    showEvent("onSmsincome: dtime=" + dtime + " from=" + from + " content="
-                            + content + " slot=" + slot);
-                },
-                // 操作回调通知
-                onOperCallback : function(flowid, callid, cdrid, direction, teleno, time,
-                        state) {
-                    showEvent("onOperCallback: : flowid=" + flowid + " callid=" + callid
-                            + " cdrid=" + cdrid + " direction=" + direction + " teleno="
-                            + teleno + " time=" + time + " state=" + state)
-                },
-                // 快速拨号回调通知
-                onSpeedCallback : function(flowid, callid, cdrid, direction, teleno, time,
-                        state, desc, sessionid) {
-                    showEvent("onSpeedCallback: flowid=" + flowid + " callid=" + callid
-                            + " cdrid=" + cdrid + " direction=" + direction + " teleno="
-                            + teleno + " time=" + time + " state=" + state + " desc="
-                            + desc + " sessionid=" + sessionid);
-                },
-            
-                onTextMessage : function(fromaid, chatmode, text) {
-                    showEvent("onTextMessage: fromaid=" + fromaid + " chatmode=" + chatmode
-                            + " content=" + text);
-                }
-            },
         }
     },
+    computed: {
+        editor() {
+            return this.$refs.myQuillEditor.quill;
+        },
+    },
     methods:{
-        changeType(index,item){//标记电话类型
-            // console.log(this.customerMsg.selectData[index])
+        onEditorReady(editor) { // 准备编辑器
+ 
+        },
+        onEditorBlur(){}, // 失去焦点事件
+        onEditorFocus(){}, // 获得焦点事件
+        onEditorChange(){}, // 内容改变事件
+        changeType(index,item,carVin){//标记电话类型
+            // //console.log(this.customerMsg.selectData[index])
             let data={
                 id:item.id,
-                carNum:item.carNum,
-                type:this.customerMsg.selectData[index]
+                carVin:carVin,
+                type:this.customerMsg.selectData[index],
+                local:this.customerMsg.local[index]
             }
             this.$axios({
                 method: 'post',
                 url: getUrl()+'updPhones',
                 data:this.$Qs.stringify(data)
             }).then(res=>{
-                console.log(res)
+                // //console.log(res)
+                if(res.data=='success'){
+                    this.getPhones()
+                    this.$notify({
+                    title: '成功!',
+                    message: '标记成功!',
+                    type: 'success'
+                    });
+                }else{
+                    this.$notify.error({
+                        title: '错误',
+                        message: '标记失败！'
+                    });
+                }
             })
+        },
+        getNotpadByOrderid(){//获取记事本
+            let data={
+                // userid:JSON.parse(window.sessionStorage.getItem('role')).userid,
+                orderid:this.orderId
+            }
+            this.$axios({
+                method: 'post',
+                url: getUrl()+'getNotpadByOrderid',
+                data:this.$Qs.stringify(data)
+            }).then(res=>{
+                this.noteBook=res.data.text
+            })
+        },
+        handleChange(val){
+            // //console.log(val)
+        },
+        saveNote(){//保存记事本
+            let data={
+                // userid:JSON.parse(window.sessionStorage.getItem('role')).userid,
+                orderid:this.orderId,
+                text:this.noteBook
+            }
+            this.$axios({
+                method: 'post',
+                url: getUrl()+'saveNotpad',
+                data:this.$Qs.stringify(data)
+            }).then(res=>{
+                // //console.log(res)
+                if(res.data.status=='1'){
+                    this.$notify({
+                    title: res.data.message,
+                    message: '成功!',
+                    type: 'success'
+                    });
+                }else{
+                    this.$notify.error({
+                        title: '错误',
+                        message: res.data.message
+                    });
+                }
+                
+            })
+            
         },
         copyPhone(item){//匹配电话赋值备注电话
             if(item=='无匹配结果'){
@@ -3652,7 +3794,7 @@ export default {
         },
         newOffer(data){
             //查看不同公司报价
-            console.log(data)
+            //console.log(data)
             if(this.company.indexOf(data.source)<0){
                 this.company.push(data.source)
             }
@@ -3669,33 +3811,27 @@ export default {
                 this.asdL.value=i
                 this.form.state.push(this.asdL)
             }
+            this.form.state[8].label='已在其他公司购买'
+            this.form.state[9].label='非本人'
+            this.form.state[10].label='已完成'
           }) 
         },
-        rowClick(row,column,event){
+        rowClick(row,e){
+            if(e.type=='recording'){
+                return
+            }
             //联系进度查看
+            console.log(row,e)
             this.dialogFormVisible=true
             this.btnShow=false
             this.prograssTitel='查看联系进度'
-            if(row.proStatu){
-                if(row.proStatu==0){
-                    row.proStatu='已报价(重点跟进)'
-                }else if(row.proStatu==1){
-                    row.proStatu='已报价(考虑中)'
-                }else if(row.proStatu==2){
-                    row.proStatu='多次拒接'
-                }else if(row.proStatu==3){
-                    row.proStatu='成功出单'
-                }else if(row.proStatu==4){
-                    row.proStatu='无人接听'
-                }else if(row.proStatu==5){
-                    row.proStatu='完全无意向'
-                }else if(row.proStatu==6){
-                    row.proStatu='已购买'
-                }else if(row.proStatu==7){
-                    row.proStatu='其他'
-                }
+            //console.log(row)
+            if(this.role==30){
+                this.form.hiddenPhone=row.phone.substring(0,3)+'****'+row.phone.substring(7,row.phone.length)
+            }else{
+                this.form.hiddenPhone=row.phone
             }
-            this.form.prograss=row.proStatu
+            this.form.prograss=row.proStatuWithDic
             this.ways=row.contactWay
             this.contKind=row.contactType
             this.form.date=row.nextContactTime
@@ -3708,7 +3844,7 @@ export default {
                 url: getUrl()+'getPicNull',
                 data:this.$Qs.stringify(data)
             }).then(res=>{
-                //console.log(res)
+                ////console.log(res)
                 if(res.data==0){
                     this.$notify.error({
                         title: '错误',
@@ -3726,7 +3862,7 @@ export default {
         },
         getMoney(){
             //已缴保费
-            //console.log(this.order.qRCodeTime)
+            ////console.log(this.order.qRCodeTime)
             this.orderProcedure(0)
         },
         orderProcedure(state){
@@ -3742,7 +3878,7 @@ export default {
                 url: getUrl()+'orderProcedure',
                 data:this.$Qs.stringify(data)
             }).then(res=>{
-                //console.log(res)
+                ////console.log(res)
                 if(res.data=="success"){
                     let data={licenseNo:this.order.licenseNo,id:this.orderId,clientId:this.khid}
                     this.$emit('reloadTwo',data)
@@ -3761,7 +3897,7 @@ export default {
             })
         },
         onRead4(file){
-            //console.log(file)
+            ////console.log(file)
             // this.imageUrl=file.content
             var formData = new FormData(); 
             formData.append('qrcode', file.file);
@@ -3776,7 +3912,7 @@ export default {
                 processData: false,
                 contentType: false,
                 success:(res)=>{
-                    //console.log(res)
+                    ////console.log(res)
                     this.imageUrls=file.content
                     this.imageUrl = false
                     this.$nextTick(() => {this.imageUrl = true})
@@ -3792,7 +3928,7 @@ export default {
         },
         // request(file){
         //     //自定义上传图片
-        //     //console.log(file.file)
+        //     ////console.log(file.file)
         //     let data={
         //         orderId:this.orderId,
         //         way:2,
@@ -3805,7 +3941,7 @@ export default {
         //         url: getUrl()+'uploadClientPaperInfo',
         //         data:this.$Qs.stringify(data)
         //     }).then(res=>{
-        //         //console.log(res)
+        //         ////console.log(res)
         //     })
         // },
         toHebao(){
@@ -3837,7 +3973,7 @@ export default {
         },
         time(val){
             //下次联系时间
-            //console.log(val)
+            ////console.log(val)
         },
         nextPage(){
             //下一页订单
@@ -3845,7 +3981,7 @@ export default {
         },
         toDakuan(){
              //申请打款
-            //console.log(22)
+            ////console.log(22)
             let data={
                 id:this.orderId,
                 orderStatus:2,
@@ -3871,35 +4007,81 @@ export default {
                 }
             })
         },
-        dialogVisible(){
+        dialogVisible(dh){
             //点击添加进度
+            let str=''
+            this.tanSelf=false
+            this.schedules.forEach(item=>{
+                item.children.forEach(child=>{
+                    if(this.order.lifeSchedule==child.value){
+                        str=item.label
+                    }
+                })
+            })
+            if(dh!=''&&this.role==30){
+                this.form.phone=dh
+                this.form.hiddenPhone=dh.substring(0,3)+'****'+dh.substring(7,dh.length)
+            }else{
+                this.form.phone=dh
+                this.form.hiddenPhone=dh
+            }
             this.dialogFormVisible=true
             this.btnShow=true
-            this.form.prograss=''
-            this.ways=''
+            setTimeout(()=>{this.form.prograss=[str,this.order.lifeSchedule]},100)
+            this.ways='电话'
             this.contKind=''
             this.form.date=''
             this.prograssTitel='添加联系进度'
         },
+        insertRecord(){//添加联系进度
+            let data={
+                orderId:this.orderId,
+                contactWay:this.ways,
+                contactType:this.contKind,
+                proStatu:'',
+                licenseNo:this.order.licenseNo, 
+                recordId:this.callID,
+                nextContactTime:this.form.date,
+                recordAss:'',
+                phone:this.form.phone,
+                userid:JSON.parse(window.sessionStorage.getItem('role')).userid
+            }
+            this.$axios({
+                headers:{'Content-Type':'application/x-www-form-urlencoded'},
+                method: 'post',
+                url: getUrl()+'insertOrderRecord',
+                data:this.$Qs.stringify(data)
+            }).then(res=>{
+                    //console.log(res)
+                    if(res.data.status==1){
+                        this.tanSelf=true
+                        this.queryOrderRecords()
+                    }
+            })
+        },
         insertOrderRecord(e){
-            //添加联系进度
+            //修改联系进度
             this.btnShow=true
             this.prograssTitel='添加联系进度'
             if(e){
+                if(this.form.prograss.length==0){
+                    this.$message.error('请选择联系进度!');
+                    return
+                }
                 let data={
                     orderId:this.orderId,
                     contactWay:this.ways,
                     contactType:this.contKind,
-                    proStatu:this.form.prograss,
+                    proStatu:this.form.prograss[1],
                     licenseNo:this.order.licenseNo, 
                     recordId:this.callID,
                     nextContactTime:this.form.date,
                     recordAss:'',
+                    phone:this.form.phone,
                     userid:JSON.parse(window.sessionStorage.getItem('role')).userid
                 }
-                if(this.form.prograss===''){
-                    this.$message.error('请选择联系进度!');
-                    return
+                if(this.tanSelf){
+                    data.flag='update'
                 }
                 this.$axios({
                     headers:{'Content-Type':'application/x-www-form-urlencoded'},
@@ -3908,9 +4090,11 @@ export default {
                     data:this.$Qs.stringify(data)
                 }).then(res=>{
                     if(res.data.status==1){
+                        this.order.lifeSchedule=this.form.prograss[1]
+                        this.getSchedulesDicts()
                         this.queryOrderRecords()
                         this.dialogFormVisible=false
-                        this.form.prograss=''
+                        this.form.prograss=[]
                         this.ways=''
                         this.contKind=''
                         this.form.date=''
@@ -3927,6 +4111,10 @@ export default {
                     }
                 })
             }else{
+                // if(this.form.prograss[1]==this.order.lifeSchedule){
+                //     this.$message.error('请重新选择联系进度!');
+                //     return
+                // }
                 this.dialogFormVisible=false
                 
             }
@@ -3989,7 +4177,7 @@ export default {
                 url: getUrl()+'saveCarins',
                 data:this.$Qs.stringify(data)
             }).then(res=>{
-                //console.log(res)
+                ////console.log(res)
                 if(res.data.status==1){
                     this.$notify({
                     title: '保存成功',
@@ -4024,7 +4212,7 @@ export default {
                 url: getUrl()+'saveClientInfo',
                 data:this.$Qs.stringify(data)
             }).then(res=>{
-                //console.log(res)
+                ////console.log(res)
                 if(res.data.status==1){
                     this.$notify({
                     title: '保存成功',
@@ -4056,9 +4244,9 @@ export default {
             }
         },
         handleClick(tab){
-            //console.log(tab.name)
+            ////console.log(tab.name)
             if(tab.name=='first'){
-                //console.log(this.data)
+                ////console.log(this.data)
                 if(this.data.insuredIdType==0){
                     this.data.insuredIdType='没有取到'
                 }else if(this.data.insuredIdType==1){
@@ -4100,7 +4288,7 @@ export default {
                     url: getUrl()+'getQuoteByLicenseNo',
                     data:this.$Qs.stringify(data)
                 }).then(res=>{
-                    //console.log(res)
+                    ////console.log(res)
                     this.lastYearData=res.data
                     
                 })
@@ -4119,7 +4307,7 @@ export default {
                 url: getUrl()+'getQuoteByLicenseNo',
                 data:this.$Qs.stringify(data)
             }).then(res=>{
-                //console.log(res)
+                ////console.log(res)
                 this.lastYearData=res.data
                 
             })
@@ -4128,7 +4316,7 @@ export default {
             //当前订单进度
             let data={
                 orderId:this.orderId,
-                userid:JSON.parse(window.sessionStorage.getItem('role')).userid
+                userid:window.sessionStorage.getItem('userid')
             }
             this.$axios({
                 headers:{'Content-Type':'application/x-www-form-urlencoded'},
@@ -4136,7 +4324,15 @@ export default {
                 url: getUrl()+'queryOrderRecords',
                 data:this.$Qs.stringify(data)
             }).then(res=>{
-                //console.log(res)
+                // //console.log(res)
+                // this.statusNumber=Number(res.data[0].proStatu)
+                this.form.state.forEach(item=>{
+                    if(res.data.length>0){
+                        if(Number(item.value)<Number(res.data[0].proStatu)){
+                            item.disabled=true
+                        }
+                    }
+                })
                 this.progressTable=res.data
             })
         },
@@ -4147,13 +4343,13 @@ export default {
                 url: getUrl()+'getDicts',
                 params:{way:0,type:'bihucardtype'}
             }).then(res=>{
-                for(let i  in res.data){
+                for(let i in res.data){
                     this.asdL={}
                     this.asdL.label=res.data[i]
                     this.asdL.value=i
                     this.licenseType.push(this.asdL)
                 }
-                //console.log(this.licenseType)
+                ////console.log(this.licenseType)
             })
         },
         updateLicenseOwner(){
@@ -4161,7 +4357,8 @@ export default {
             let data={
                 licenseOwner:this.order.licenseOwner,
                 otherphone:this.order.otherphone,
-                orderId:this.orderId
+                orderId:this.orderId,
+                credentislasnum:this.data.credentislasnum
             }
             this.$axios({
                 headers:{'Content-Type':'application/x-www-form-urlencoded'},
@@ -4202,7 +4399,7 @@ export default {
                 url: getUrl()+'saveClientInfo',
                 data:this.$Qs.stringify(data)
             }).then(res=>{
-                //console.log(res)
+                ////console.log(res)
                 if(res.data.status==1){
                     this.$notify({
                     title: '保存成功',
@@ -4228,11 +4425,11 @@ export default {
                 let fenji=JSON.parse(window.sessionStorage.getItem('role')).hcall_nodid//分机号
                 let gonghao=JSON.parse(window.sessionStorage.getItem('role')).hcall_jobno//工号
                 let duilie=JSON.parse(window.sessionStorage.getItem('role')).hcall_queueid//队列号
-                this.doOprInReq(this.order.otherphone.toString(),fenji,gonghao,duilie,stop)
+                this.doOprInReq('9'+this.order.otherphone.toString(),fenji,gonghao,duilie,stop)
             }
             this.callNowState='已挂断...'
-            setTimeout(()=>{
-                this.calling=false
+            setTimeout(()=>{               
+                this.calling=false               
                 clearInterval(this.timerCall)
                 this.callingTime='00 : 00'
                 // let gonghao=JSON.parse(window.sessionStorage.getItem('role')).hcall_jobno//工号
@@ -4241,23 +4438,33 @@ export default {
             },1000)
             
         },
-        callHere(){
+        callHere(wd){
             //拨打备用电话
             this.calling=true
             // return
             let fenji=JSON.parse(window.sessionStorage.getItem('role')).hcall_nodid//分机号
             let gonghao=JSON.parse(window.sessionStorage.getItem('role')).hcall_jobno//工号
             let duilie=JSON.parse(window.sessionStorage.getItem('role')).hcall_queueid//队列号
-            this.doOprInReq(this.order.otherphone.toString(),fenji,gonghao,duilie)
+            if(wd=='wd'){//外地号码
+                this.doOprInReq('90'+this.order.otherphone.toString(),fenji,gonghao,duilie)
+            }else{
+                this.doOprInReq('9'+this.order.otherphone.toString(),fenji,gonghao,duilie)
+            }
             // this.doOprCallOutReq(this.order.otherphone.toString(),fenji,gonghao)
         },
-        callOut(){
+        callOut(wd){
+            //console.log(wd)
             this.calling=true
             this.fenji=JSON.parse(window.sessionStorage.getItem('role')).hcall_nodid//分机号
             this.gonghao=JSON.parse(window.sessionStorage.getItem('role')).hcall_jobno//工号
             this.duilie=JSON.parse(window.sessionStorage.getItem('role')).hcall_queueid//队列号
             this.danhao='danhao'
-            this.doOprInReq(this.order.phone.toString(),this.fenji,this.gonghao,this.duilie)
+            if(wd=='wd'){//外地号码
+                this.doOprInReq('90'+this.order.phone.toString(),this.fenji,this.gonghao,this.duilie)
+            }else{
+                this.doOprInReq('9'+this.order.phone.toString(),this.fenji,this.gonghao,this.duilie)
+            }
+            
             // this.doOprCallOutReq(this.order.otherphone.toString(),this.fenji,this.gonghao)
         },
         stopCall(){
@@ -4268,6 +4475,29 @@ export default {
         upLoad(){
             //上传图片
 
+        },
+        handleClose(){
+            let audio=document.getElementById('play_wave_layout')
+            audio.pause()
+            this.playRecording=false
+        },
+        recording(recordId){//调取录音
+            let data={
+                callid:recordId
+            }
+            this.$axios({
+                headers:{'Content-Type':'application/x-www-form-urlencoded'},
+                method: 'post',
+                url: 'http://172.16.1.254:8181/play.ashx',
+                data:this.$Qs.stringify(data)
+            }).then(res=>{
+                if(res.data.status==0){
+                    this.$message.error('该记录暂无录音!')
+                    return
+                }
+                this.recordingSrc=res.data
+                this.playRecording=true
+            })
         },
         handleAvatarSuccess(res, file) {
             //上传图片
@@ -4295,7 +4525,7 @@ export default {
                 url: getUrl()+'onloadPic',
                 params:{orderId:this.orderId}
             }).then(res=>{
-                //console.log(res)
+                ////console.log(res)
                 if(res.data==0){
                     this.$notify.error({
                         title: '用户未上传图片',
@@ -4323,7 +4553,7 @@ export default {
                 url: getUrl()+'onloadPic',
                 params:{orderId:this.orderId}
             }).then(res=>{
-                //console.log(res)
+                ////console.log(res)
                 if(res.data==0){
                     this.$notify.error({
                         title: '用户未上传图片',
@@ -4361,7 +4591,7 @@ export default {
             //         //let url = canvas.toDataURL() // 得到图片的base64编码数据
             //         let url = canvas.toDataURL('image/png')    
             //         baseList.push(url.substring(22))
-            //         //console.log(url)
+            //         ////console.log(url)
             //         return
             //         if (baseList.length === arr.length) {
             //         if (baseList.length > 0) {
@@ -4443,19 +4673,19 @@ export default {
         },
         reload(data){
             //刷新订单
-            //console.log(data)
+            ////console.log(data)
             this.showPic=false
-            this.sfzzm=''
-            this.sfzfm=''
-            this.xszzm=''
-            this.xszfm=''
-            this.$nextTick(()=>{
-                this.sfzzm=getUrl()+'getPicBytes?orderId='+this.orderId+'&index=sfzzm'
-                this.sfzfm=getUrl()+'getPicBytes?orderId='+this.orderId+'&index=sfzfm'
-                this.xszzm=getUrl()+'getPicBytes?orderId='+this.orderId+'&index=xszzm'
-                this.xszfm=getUrl()+'getPicBytes?orderId='+this.orderId+'&index=xszfm'
-                this.showPic=true
-            })
+            // this.sfzzm=''
+            // this.sfzfm=''
+            // this.xszzm=''
+            // this.xszfm=''
+            // this.$nextTick(()=>{
+            //     this.sfzzm=getUrl()+'getPicBytes?orderId='+this.orderId+'&index=sfzzm'
+            //     this.sfzfm=getUrl()+'getPicBytes?orderId='+this.orderId+'&index=sfzfm'
+            //     this.xszzm=getUrl()+'getPicBytes?orderId='+this.orderId+'&index=xszzm'
+            //     this.xszfm=getUrl()+'getPicBytes?orderId='+this.orderId+'&index=xszfm'
+            //     this.showPic=true
+            // })
             this.$emit('reload',{clientId:this.khid,id:this.orderId})
             this.$emit('reloadTwo',{licenseNo:this.order.licenseNo})
             if((this.order.policyStatus==''||this.order.policyStatus=='2')&&(this.order.sharePrice==1)){
@@ -4508,7 +4738,7 @@ export default {
           let fenji=JSON.parse(window.sessionStorage.getItem('role')).hcall_nodid//分机号
           let gonghao=JSON.parse(window.sessionStorage.getItem('role')).hcall_jobno//工号
           let duilie=JSON.parse(window.sessionStorage.getItem('role')).hcall_queueid//队列号
-          this.doOprInReq(this.order.otherphone.toString(),fenji,gonghao,duilie)
+          this.doOprInReq('9'+this.order.otherphone.toString(),fenji,gonghao,duilie)
         },
         logout(){
           //手动签出
@@ -4517,13 +4747,13 @@ export default {
             let fenji=JSON.parse(window.sessionStorage.getItem('role')).hcall_nodid//分机号
             let gonghao=JSON.parse(window.sessionStorage.getItem('role')).hcall_jobno//工号
             let duilie=JSON.parse(window.sessionStorage.getItem('role')).hcall_queueid//队列号
-            this.doOprInReq(this.order.otherphone.toString(),fenji,gonghao,duilie,'签出')
+            this.doOprInReq('9'+this.order.otherphone.toString(),fenji,gonghao,duilie,'签出')
         },
         doOprOutReq(gonghao){
             //签出
             var aid = gonghao;//工号
             UMO.logout(aid, (cmd, result)=> {
-                console.log(cmd, result)
+                //console.log(cmd, result)
                 if (result.errno == 0) {//
                     this.cm_login=2;
                     this.hcall_exit();
@@ -4537,11 +4767,11 @@ export default {
             //关闭
             this.cm_callsate = 0;
             // cm_logstart = 0;
-            console.log(22321)
+            //console.log(22321)
             UMO.exit(cbResult, null)
         },
         doOprInReq2(fenji,gonghao,duilie){
-            console.log(fenji,gonghao,duilie)
+            //console.log(fenji,gonghao,duilie)
             let that=this
             //签入
             var acd = duilie;//队列号（技能组）号
@@ -4550,27 +4780,29 @@ export default {
             var aid = gonghao;//工号
             var adn = aid; //$("#adn").val();//话务员分机电话号码
             var apwd = "e10adc3949ba59abbe56e057f20f883e";//工号密码
-            var apihost = 'http://10.254.1.155:8181/IPServer';//接口地址cti254.csgxcf.com
+               //var apihost = 'http://cti254.csgxcf.com/IXServer';//接口地址cti254.csgxcf.com
+            var apihost = 'http://172.16.1.254/IXServer';//接口地址cti254.csgxcf.com
             this.cm_callsate = 0;
+                //console.log('初始化666666666666666')
             //断开连接
-            that.UMO.exit(function(cmd, result){
+            this.UMO.exit(function(cmd, result){
                 //启动连接
                 that.UMO.start(apihost, bizhost, that.EvtHandler, eid, "", aid, apwd, adn, function(cmd, result) {
                     //0:启动成功 -3:已启动
-                    console.log(result)
+                    //console.log(result)
                     that.token=result.token
-                    that.UMO.dataoper('calllist','user','q','calllist','calllist','','','','','',that.token)
+                    // this.UMO.dataoper('calllist','user','q','calllist','calllist','','','','','',that.token)
                     if (result.errno == 0 || result.errno == -3) {
                         // cm_logstart=1;
                         //登出原有座席
                         that.UMO.logout(aid, function(cmd, result){
-                            console.log(aid,cmd,result)
+                            //console.log(aid,cmd,result)
                             //签入座席
                             that.UMO.login(aid, acd, -1, false, false, function(cmd, result) {
-                                console.log(result)
+                                //console.log(result)
                                 // if (result.errno == 0) {
                                 //     that.cm_login=1;
-                                //     console.log(222)
+                                //     //console.log(222)
                                 // } else {
                                 //     that.$notify.error({
                                 //         title: '错误',
@@ -4585,8 +4817,10 @@ export default {
             },null);//断开连接
         },
         doOprInReq(phone,fenji,gonghao,duilie,logout){
-            console.log(phone,fenji,gonghao,duilie,logout)
-            let that=this
+      
+
+            //console.log(phone,fenji,gonghao,duilie,logout)
+            let that=this;
             //签入
             var acd = duilie;//队列号（技能组）号
             var eid = "0"; //$("#eid").val();////租户ID
@@ -4594,34 +4828,46 @@ export default {
             var aid = gonghao;//工号
             var adn = aid; //$("#adn").val();//话务员分机电话号码
             var apwd = "e10adc3949ba59abbe56e057f20f883e";//工号密码
-            var apihost = 'http://10.254.1.155:8181/IPServer';//接口地址cti254.csgxcf.com
+               //var apihost = 'http://cti254.csgxcf.com/IXServer';//接口地址cti254.csgxcf.com
+            var apihost = 'http://172.16.1.254/IXServer';//接口地址cti254.csgxcf.com
+     
             this.cm_callsate = 0;
+            // console.log("11111111111111")
             //断开连接
-            that.UMO.exit(function(cmd, result){
+            this.UMO.exit(function(cmd, result){
+                //  console.log("222222222")
+                //  console.log(result)
                 //启动连接
-                that.UMO.start(apihost, bizhost, that.EvtHandler, eid, "", aid, apwd, adn, function(cmd, result) {
-                    //0:启动成功 -3:已启动
-                    console.log(result)
+                that.UMO.start(apihost, bizhost, that.EvtHandler, eid, "", aid, apwd, adn, function(cmd, result) {                   
+                //      console.log("3333333333333")
+                //  console.log(result)
+                   //0:启动成功 -3:已启动
+                    //console.log(result)
                     if (result.errno == 0 || result.errno == -3) {
                         // cm_logstart=1;
                         //登出原有座席
                         that.UMO.logout(aid, function(cmd, result){
-                            console.log(aid,cmd,result)
-                            if(logout&&result.errno==0){
-                                that.$notify({
-                                  title: '成功',
-                                  message: '签出成功!',
-                                  type: 'success'
-                                });
-                                that.cm_login=2;
-                                return
-                            }
+                //                console.log("4444444444444443")
+                //  console.log(result)
+                            //console.log('---------------------')
+                            //console.log(aid,cmd,result)
+                            // if(logout&&result.errno==0){
+                            //     that.$notify({
+                            //       title: '成功',
+                            //       message: '签出成功!',
+                            //       type: 'success'
+                            //     });
+                            //     that.cm_login=2;
+                            //     return
+                            // }
                             //签入座席
                             that.UMO.login(aid, acd, -1, false, false, function(cmd, result) {
-                                console.log(result)
+                                //    console.log("55555555555555555")
+                                //     console.log(result)
+                                //console.log(result)
                                 if (result.errno == 0) {
                                     that.cm_login=1;
-                                    console.log(222)
+                                    //console.log(222)
                                     // that.$notify({
                                     //   title: '成功',
                                     //   message: '签入成功!',
@@ -4644,16 +4890,17 @@ export default {
         },
         doSetOprDropReq(){
             //挂断
-            let that=this
+            let that=this;
             clearInterval(that.timerCall)
             this.callingTime='00 : 00'
             this.UMO.onhook(
 			function(cmd, result) {
-                console.log(result)
+                //console.log(result)
 				if (result.errno == 0) {
                     that.cm_callsate = 1;
-                    // that.doSetOprFreeReq()
-					// doSetOprBusyReq();//示忙
+                    that.tanSelf=false
+                    that.dialogFormVisible=true
+					that.doSetOprFreeReq();//示闲
 				} else {
                     // setPhoneButtonStatus(true, true, false, true, true, true, "状态:坐席示忙");
                     that.$notify.error({
@@ -4665,7 +4912,7 @@ export default {
         },
         doOprCallOutReq(phone,fenji,gonghao){
             //拨出
-            console.log(phone,fenji,gonghao)
+            //console.log(phone,fenji,gonghao)
             let that=this
             var calleddn = phone;//拨出号码
             var gid = ''; //$("#agentgid").val();//中继线路 指定中继号码，或 @+租户ID 选择租户任意线路(转移会议无效)
@@ -4701,7 +4948,7 @@ export default {
             var uud="ano:" + fenji+";__RECORDDIAL__:F#\\record\\"+cur_date.substring(0,10)+"\\"+cur_time+".wav";
             // calleddn = 9 + calleddn;
             this.UMO.dialout(calleddn, gid, uud, true, function(cmd, result) {
-                console.log(cmd,result)
+                //console.log(cmd,result)
                 if (result.errno == 0) {
                     that.callin=false
                     // $('#phoneOut_orid').val($('#phone_orid').val());// 赋值正在播出
@@ -4715,11 +4962,21 @@ export default {
                 }
             }, null)
         },
+        doSetOprBusyReq() {//示忙
+            this.UMO.setbusy((cmd, result)=>{
+                        if (result.errno == 0) {
+                            this.cm_callsate = 1;
+                            //console.log('示忙')
+                            // setPhoneButtonStatus(true, true, false, true, true, true, "状态:坐席示忙");
+                        }
+                    }, null);
+        },
         doSetOprFreeReq() {
             //示闲
             this.UMO.setidle((cmd, result) =>{
-                console.log(result)
+                //console.log(result)
                 if (result.errno == 0) {
+                    console.log('示闲')
                     this.cm_callsate = 0;
                     // setPhoneButtonStatus(false, true, true, false, true, false, "状态:坐席空闲");
                 } else {
@@ -4730,9 +4987,9 @@ export default {
         getcdrid(){
             //获取话单ID
             this.UMO.getcdrid((cmd, result)=>{
-                console.log(result)
+                //console.log(result)
                 if (result.errno == 0) {
-                    // console.log(result.cdrid)
+                    // //console.log(result.cdrid)
                     this.callID=result.cdrid
                     // $('#cdrid').val(result.cdrid);
                 }
@@ -4752,6 +5009,33 @@ export default {
             nstrg[nstrg.length] = ("0" + ndate.getSeconds()).slice(-2);
             return nstrg.join('');
         },
+        getSchedulesDicts(){//联系进度下拉列表
+            this.$axios({
+                url:getUrl()+'getSchedulesDicts',
+                method:'post'
+            }).then(res=>{
+                //console.log(this.order.lifeSchedule)
+                let arr=[]
+                for(let i in res.data){
+                    let json={}
+                    json.label=i
+                    json.value=i
+                    json.children=[]
+                    for(let s in res.data[i]){
+                        let chJson={}
+                        chJson.label=res.data[i][s]
+                        chJson.value=s
+                        if(Number(s)<=Number(this.order.lifeSchedule)){
+                            chJson.disabled=true
+                        }
+                        json.children.push(chJson)
+                    }
+                    arr.push(json)
+                }
+                this.schedules=arr
+
+            })
+        },
         getPhones(){//电话全未空时查询号码
             let data={
                 orderId:this.orderId
@@ -4762,36 +5046,20 @@ export default {
                 url: getUrl()+'getPhones',
                 data:this.$Qs.stringify(data)
             }).then(res=>{
-                console.log(res)
                 if(res.data.length==0){
                     this.customerMsg.note=['无匹配结果']
                 }else{
-                    this.customerMsg.note=res.data
                     let arr=[]
+                    let local=[]
                     res.data.forEach((item,index)=> {
                         arr.push(item.type)
+                        local.push(item.local)
+                        item.addShow=false
                     });
-                    // let arr=res.data.fore((item,index)=>{
-                    //     if(item.type==''){
-                    //         item.type='5'
-                    //     }
-                    //     console.log(index,item.type)
-                    //     return item.type
-                    // })
+                    this.customerMsg.note=res.data
                     this.customerMsg.selectData=arr
+                    this.customerMsg.local=local
                 }
-                // let arr=['123123132','235346363','988686922','125235345']
-                // this.customerMsg.note=this.customerMsg.note.concat(arr)
-                // if(res.data=='fail'){
-                //     this.customerMsg.note='无匹配结果'
-                // }else if(res.data.toString().length==0){
-                //     this.customerMsg.note='无匹配结果'
-                    
-                // }else{
-                //     let str=new RegExp(',','g') 
-                //     let newStr=res.data.toString().replace(str,'\n')
-                //     this.customerMsg.note=newStr
-                // }
             })
         }
     },
@@ -4800,7 +5068,17 @@ export default {
             immediate:true,
             handler(val){
                 this.queryOrderRecords()
-                // this.phoneNew=this.order.phone.substring(0,3)+'****'+this.order.phone.substring(7,this.order.phone.length)
+                this.getNotpadByOrderid();
+                if(this.role==30){
+                    this.phoneNew=this.order.phone.substring(0,3)+'****'+this.order.phone.substring(7,this.order.phone.length)
+                }else{
+                    this.phoneNew=this.order.phone
+                }
+                if(this.role==30){
+                    this.otherPhoneNew=this.order.otherphone.substring(0,3)+'****'+this.order.otherphone.substring(7,this.order.otherphone.length)
+                }else{
+                    this.otherPhoneNew=this.order.otherphone
+                }
                 if(this.order.orderStatus==1&&this.order.policyStatus==0){//订单可打款
                     this.dakuan=false
                 }else{
@@ -4810,59 +5088,6 @@ export default {
                     this.hebao=false
                 }else{
                     this.hebao=true
-                }
-                let now=new Date()
-                let y=now.getFullYear()
-                let m=now.getMonth()+1
-                let d=now.getDate()
-                if(m<10){m="0"+Number(m)}
-                if(d<10){d='0'+Number(d)}
-                let iDays = Math.floor(Math.abs(Date.parse(y+'-'+m+'-'+d)-Date.parse(commod(this.data.updtime))) / (24 * 3600 * 1000));
-                if(this.data.updtime==''||iDays>3){//大于3天可刷新续保
-                    this.refresh=false
-                }else{
-                    this.refresh=true
-                }
-                this.sfzzm=''
-                this.sfzfm=''
-                this.xszzm=''
-                this.xszfm=''
-                this.imageUrls=''
-                this.showPic=false
-                this.$nextTick(()=>{
-                    this.showPic=true
-                    this.imageUrls=getUrl()+'getPicBytes?orderId='+this.orderId+'&index=paymentQRCode'
-                    this.sfzzm=getUrl()+'getPicBytes?orderId='+this.orderId+'&index=sfzzm'
-                    this.sfzfm=getUrl()+'getPicBytes?orderId='+this.orderId+'&index=sfzfm'
-                    this.xszzm=getUrl()+'getPicBytes?orderId='+this.orderId+'&index=xszzm'
-                    this.xszfm=getUrl()+'getPicBytes?orderId='+this.orderId+'&index=xszfm'
-                    // console.log(this.sfzzm)
-                })
-                let urlArr=['paymentQRCode','sfzzm','sfzfm','xszzm','xszfm']
-                let imgUrl=[this.imageUrls,this.sfzzm,this.sfzfm,this.xszzm,this.xszfm]
-                for(let i=0;i<urlArr.length;i++){
-                    
-                    this.$axios({
-                        method: 'get',
-                        url: getUrl()+'getPicBytes',
-                        params:{orderId:this.orderId,index:urlArr[i]},
-                        responseType: 'arraybuffer'
-                    }).then(res=>{
-                        // console.log(res)
-                        let img='data:image/png;base64,' + btoa(new Uint8Array(res.data).reduce((data, byte) => data + String.fromCharCode(byte), ''))
-                        if(urlArr[i]=='paymentQRCode'){
-                            this.imageUrls=img
-                        }else if(urlArr[i]=='sfzzm'){
-                            this.sfzzm=img
-                        }else if(urlArr[i]=='sfzfm'){
-                            this.sfzfm=img
-                        }else if(urlArr[i]=='xszzm'){
-                            this.xszzm=img
-                        }else if(urlArr[i]=='xszfm'){
-                            this.xszfm=img
-                        }
-                        
-                    })
                 }
                 this.getPhones();
                 // if(this.order.phone==''&&this.order.otherphone==''&&this.order.sidePhone1==''&&this.order.sidePhone2==''){//电话全为空且订单改变时匹配电话
@@ -4874,47 +5099,55 @@ export default {
         textarea:{
             immediate:true,
             handler(val){
-                // //console.log(val)
+                // ////console.log(val)
             },
             deep:true
         },
         orderId:{
             immediate:true,
             handler(val){
-                // this.imageUrls=getUrl()+'getPicBytes?orderId='+this.orderId+'&index=paymentQRCode'
-                // this.sfzzm=getUrl()+'getPicBytes?orderId='+this.orderId+'&index=sfzzm'
-                // this.sfzfm=getUrl()+'getPicBytes?orderId='+this.orderId+'&index=sfzfm'
-                // this.xszzm=getUrl()+'getPicBytes?orderId='+this.orderId+'&index=xszzm'
-                // this.xszfm=getUrl()+'getPicBytes?orderId='+this.orderId+'&index=xszfm'
             },
             deep:true
         }
     },
     beforeDestroy(){
+        
         clearInterval(this.timerCall)
     },
-    updated(){
-        // console.log(322)
+    destroyed(){
+        // window.addEventListener('beforeunload', this.beforeunloadFn)
+    },
+    created(){
+        // window.removeEventListener('beforeunload', this.beforeunloadFn)
     },
     mounted(){
-        // console.log(this.getdata)
+        //console.log(JSON.parse(window.sessionStorage.getItem('role')))
+        
         this.imageUrl=this.url+'getPicBytes?orderId='+this.orderId+'&index=paymentQRCode'
-        this.role=JSON.parse(window.sessionStorage.getItem('role')).userrole
         $('.orderDetail').css('height',$(window).height()-$('.orderList').offset().top-$('.btn').height()-10+'px')
         this.url=getUrl()
-        this.schedule('schedule');
+        // this.schedule('schedule');//联系进度下拉列表
         this.GetlicenseType()
-        let fenji=JSON.parse(window.sessionStorage.getItem('role')).hcall_nodid//分机号
-        let gonghao=JSON.parse(window.sessionStorage.getItem('role')).hcall_jobno//工号
-        let duilie=JSON.parse(window.sessionStorage.getItem('role')).hcall_queueid//队列号
-        this.doOprInReq2(fenji,gonghao,duilie)
+        this.role=JSON.parse(window.sessionStorage.getItem('role')).userrole;
+        setTimeout(()=>{
+            this.getSchedulesDicts();           
+            let fenji=JSON.parse(window.sessionStorage.getItem('role')).hcall_nodid//分机号
+            let gonghao=JSON.parse(window.sessionStorage.getItem('role')).hcall_jobno//工号
+            let duilie=JSON.parse(window.sessionStorage.getItem('role')).hcall_queueid//队列号
+            //  this.doOprInReq2(fenji,gonghao,duilie)
+        },100)
+        // setTimeout(()=>{this.getLastYear();},200)
+        if(this.role==30){
+            this.phoneNew=this.order.phone.substring(0,3)+'****'+this.order.phone.substring(7,this.order.phone.length)
+        }else{
+            this.phoneNew=this.order.phone
+        }
         
-        
-        setTimeout(()=>{this.getLastYear();},200)
-        // this.phoneNew=this.order.phone.substring(0,3)+'****'+this.order.phone.substring(7,this.order.phone.length)
-    },
-    beforeDestroy(){
-        // this.stopHere('stop')
+        if(this.role==30){
+            this.otherPhoneNew=this.order.otherphone.substring(0,3)+'****'+this.order.otherphone.substring(7,this.order.otherphone.length)
+        }else{
+            this.otherPhoneNew=this.order.otherphone
+        }
     }
 }
 </script>
@@ -5051,25 +5284,36 @@ export default {
             .borderPhone{
                 border: 1px solid #DCDFE6;
                 border-radius: 4px;
-                overflow-y: scroll;
+                overflow-y: auto;
                 height: 132px;
                 .el-popover{
                     width: 300px !important;
                 }
                 ul{
-                    width: 80%;
+                    overflow-y: auto;
+                    width: 100%;
                     height: 132px;
                 }
                 li{
                     // text-indent: 14px;
                     font-size: 14px;
-                    
                     display: flex;
-                    justify-content: space-around;
+                    // justify-content: space-around;
+                    .result{
+                        margin: 0 6px;
+                    }
                     b{
                       cursor: pointer;
+                      text-indent: 1em;
                       font-weight: normal;
                     }
+                    p{
+                        cursor: pointer;
+                        text-decoration: underline;
+                    }
+                }
+                li:hover{
+                    background: #eee;
                 }
             }
             .bigImg{
@@ -5122,6 +5366,50 @@ export default {
                             width: 130px;
                             height: 120px;
                             
+                        }
+                        .noteBook{
+                            border: 2px solid #DCDFE6;
+                            border-radius: 4px;
+                            width: 23vw;
+                            .note{
+                                display: flex;
+                                flex-direction: column;
+                                .title{
+                                    display: flex;
+                                    justify-content: space-between;
+                                    i{
+                                        height: 31px;
+                                        line-height: 31px;
+                                        text-indent: 1em;
+                                        display: block;
+                                        width: 100% !important;
+                                        border-bottom: 2px solid #e5e5e5;
+                                    }
+                                    span{
+                                        display: block;
+                                        width: 50px;
+                                        font-weight: bold;
+                                        color: #bb262b;
+                                        font-size: 14px;
+                                        line-height: 31px;
+                                        cursor: pointer;
+                                    }
+                                }
+                                
+                                .content{
+                                    width: 100% !important;
+                                    height: 100%;
+                                    // border: 1px solid #e5e5e5;
+                                    // border-top: none;
+                                }
+                            }
+                            ul{
+                                overflow-y: auto;
+                                height: 251px;
+                                width: 25vw;
+                            }
+                            li{
+                            }
                         }
                         .plus{
                             width: 200px;

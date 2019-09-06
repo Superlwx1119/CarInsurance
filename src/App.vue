@@ -18,6 +18,17 @@ export default {
     text-decoration: none;
     font-family:Alibaba PuHuiTi !important;
   }
+  .loginTable {
+    .el-input{
+      // background: transparent !important;
+    }
+    .el-input__inner{}
+    .el-form-item__error{
+      left:50% !important;
+      top:85% !important;
+      transform: translateX(-50%) !important;
+    }
+  }
   .el-radio__input.is-checked .el-radio__inner{
     background: #EA9B13 !important;
     border-color: #EA9B13 !important;
@@ -249,7 +260,9 @@ export default {
       cursor: pointer;
     }
   }
+  
   .Saleslist{
+    
     .el-radio-group{
       padding-top: 7px !important;
     }
@@ -442,4 +455,52 @@ export default {
   .van-field__control{
     height: .4rem;
   }
+  .Saleslist .tagCont .rowSpan{
+    .el-cascader--small{
+      width: 10.5vw !important;
+    }
+    .el-cascader__label{
+      width: 10.5vw !important;
+    }
+    .el-cascader .el-input, .el-cascader .el-input__inner{
+      width: 10.5vw !important;
+    }
+    #cascader{
+      width: 10.5vw !important;
+    }
+  } 
+  .el-cascader-node.in-active-path, .el-cascader-node.is-active, .el-cascader-node.is-selectable.in-checked-path{
+      color: #EA9B13 !important;
+    }
+    .el-drawer{
+      .el-form-item{
+        margin: 0 !important;
+      }
+      .center{
+        display: flex !important;
+        justify-content: center !important;
+      }
+      .rows{
+        display: flex !important;
+        >div{
+          width: 250px !important;
+        }
+        .titel{
+          width: 120px !important;
+          display: block !important;
+          text-align: center !important;
+        }
+      }
+  }
+  .blacklist{
+    .el-tabs__header{
+      margin: 0 !important;
+    }
+    .el-table--border{
+      height: 100%;
+    }
+  }
+  .my-dailog   .el-dialog__header {
+        background: #409EFF !important;
+    }
 </style>

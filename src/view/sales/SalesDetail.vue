@@ -11,9 +11,10 @@
                 <el-col :span="3">
                     <div class="orderList" @mousemove="mousemove" @mouseout="mouseout">
                         <div ref="orders" v-for="(item,index) of $route.params.tableData" :key="index" class="order" :class="{'orderActive': index == active}" @click="selectOrder(index)">
-                            <h2>{{item.licenseNo}}</h2> 
-                            <p>交强险到期时间:<span class="red">{{item.jqxdqDate==''?'---':item.jqxdqDate|time}}</span></p>
-                            <p>商业险到期时间:<span class="red">{{item.syxdqDate==''?'---':item.syxdqDate|time}}</span></p>
+                            <h2>{{item.licenseOwner}}</h2> 
+                            <p>剩余跟进时间: <span class="red">{{item.remainingTime|remainingTime}}</span>天</p>
+                            <!-- <p>交强险到期时间:<span class="red">{{item.jqxdqDate==''?'---':item.jqxdqDate|time}}</span></p> -->
+                            <!-- <p>商业险到期时间:<span class="red">{{item.syxdqDate==''?'---':item.syxdqDate|time}}</span></p> -->
                         </div>
                     </div>
                 </el-col>
@@ -48,6 +49,14 @@ export default {
                 }
             }
             return val
+        },
+        remainingTime(val){
+            if(val==''){
+                return '--'
+            }else{
+                return val
+            }
+            
         }
     },
     data(){
@@ -104,8 +113,8 @@ export default {
                     });
                 }else{
                     this.getClientInfoCarinsThree(res.data.rows[0].clientId,res.data.rows[0].id)
-                    this.getQuoteRecordByOrderidThree(res.data.rows[0].id)
-                    this.getQuoteByClientIdThree(res.data.rows[0].licenseNo)
+                    // this.getQuoteRecordByOrderidThree(res.data.rows[0].id)
+                    // this.getQuoteByClientIdThree(res.data.rows[0].licenseNo)
                     if(wait){
                         this.dialog=true
                     }else{
@@ -275,13 +284,13 @@ export default {
             let duilie=JSON.parse(window.sessionStorage.getItem('role')).hcall_queueid//队列号
             this.$refs.callIN.doOprInReq2(fenji,gonghao,duilie)
             this.getClientInfoCarins2(this.$route.params.tableData[index].clientId,this.$route.params.tableData[index].id)
-            this.getQuoteRecordByOrderid2(this.$route.params.tableData[index].id)
-            this.getQuoteByClientId2(this.$route.params.tableData[index].licenseNo)
+            // this.getQuoteRecordByOrderid2(this.$route.params.tableData[index].id)
+            // this.getQuoteByClientId2(this.$route.params.tableData[index].licenseNo)
             // this.phoneCus=this.$route.params.tableData[index].phone.substring(0,3)+'****'+this.$route.params.tableData[index].phone.substring(7,this.$route.params.tableData[index].phone.length)
             
         },
         getInfoCarins(data){
-            this.getQuoteByLicenseNo(data)
+            // this.getQuoteByLicenseNo(data)
             // this.getClientInfoCarins3(data)
             this.selectOrder(this.active)
         },
@@ -704,6 +713,7 @@ export default {
                 orderId:ddid,
                 userid:JSON.parse(window.sessionStorage.getItem('role')).userid
             }
+            console.log(data)
             this.$axios({
                 headers:{'Content-Type':'application/x-www-form-urlencoded'},
                 method: 'post',
@@ -780,7 +790,7 @@ export default {
             let data={
                 // clientId:this.$route.params.khid,
                 orderId:this.$route.params.ddid,
-                userid:JSON.parse(window.sessionStorage.getItem('role')).userid
+                userid:window.sessionStorage.getItem('userid')
             }
             //console.log(data)
             if(!this.$route.params.ddid){
@@ -902,16 +912,16 @@ export default {
         }
     },
     created(){
-        this.getClientInfoCarins()
+        // this.getClientInfoCarins()
     },
     mounted(){
         $('.orderList').css('height',$(window).height()-$('.orderList').offset().top+'px')
         $('.orderDetail').css('height',$(window).height()-$('.orderList').offset().top-$('.btn').height()+'px')
         // this.getLastTimeQuote()
-        this.getQuoteRecordByOrderid()
+        // this.getQuoteRecordByOrderid()
         // this.getOrders()
         this.getClientInfoCarins()
-        this.Three()
+        // this.Three()
         this.first=true
         this.active=this.$route.params.index
         $('.orderList').scrollTop($('.order').height()*this.active)//左侧滚动条距离

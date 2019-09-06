@@ -51,7 +51,7 @@
                             <span class="keyword">角色:</span>
                         </el-form-item>
                         <el-form-item>
-                            <el-select v-model="roleNume" size="small" placeholder="请选择">
+                            <el-select clearable v-model="roleNume" size="small" placeholder="请选择">
                                 <el-option
                                 v-for="item in roles"
                                 :key="item.value"
@@ -294,6 +294,8 @@ export default {
     name:'StaffManagement',
     data() {
         return {
+            deptId:[],
+            deptIds:[],
             edit:false,
             loading:false,
             userdptname:'',
@@ -334,9 +336,35 @@ export default {
             tableData: [],
             roleNume:'',
             arr2:[],
+            deptArr:[],
+            userdeptid:''
         }
     },
     methods:{
+        changeDept(val,e){//选择部门
+            if(val==true){
+                
+                this.deptIds.forEach(pid=>{
+                    if(this.deptArr.indexOf(pid.value)>0){
+                        return
+                    }
+                    if(pid.label==e.srcElement.defaultValue){
+                        this.deptArr.push(pid.value)
+                    }
+                })
+            }else{
+                console.log(this.deptArr)
+                this.deptIds.forEach(pid=>{
+                    console.log(pid.label,e.srcElement.defaultValue,this.deptArr.indexOf(pid.value))
+                    if(pid.label==e.srcElement.defaultValue){
+                        
+                        this.deptArr.splice(this.deptArr.indexOf(pid.value),1)
+                    }
+                    
+                })
+                
+            }
+        },
         // changeRole(){
         //     //选择员工身份
         //     let arr=[]
@@ -364,6 +392,21 @@ export default {
         //         }
         //     }
         // },
+        getDepts(){//获取部门
+            this.$axios({
+                headers:{'Content-Type':'application/x-www-form-urlencoded'},
+                method: 'post',
+                url: getUrl()+'getDepts'
+            }).then(res=>{
+                // console.log(res)
+                res.data.rows.forEach(item=>{
+                    let json={}
+                    json.label=item.deptname
+                    json.value=item.deptid
+                    this.deptIds.push(json)
+                })
+            })
+        },
         reload(){
             //刷新
             this.keyword=''
@@ -384,16 +427,15 @@ export default {
                 this.asdL.value=i
                 this.roles.push(this.asdL)
             }
-            console.log(this.roles)
           })
         },
         handleEdit(index,e){
             //编辑
             this.edit=true
             this.userid=e.userid
-            this.getUser(e.userid)
+            this.getUserById(e.userid)
         },
-        getUser(userid){
+        getUserById(userid){
             //获取员工个人信息
             let data={
                 userid:userid
@@ -401,14 +443,15 @@ export default {
             this.$axios({
                 headers:{'Content-Type':'application/x-www-form-urlencoded'},
                 method: 'post',
-                url: getUrl()+'getUser',
+                url: getUrl()+'getUserById',
                 data:this.$Qs.stringify(data)
             }).then(res=>{
-                console.log(res)
                 this.value=res.data.userrole
                 if(res.data.userrole==0){
                     this.value='游客'
                 }else if(res.data.userrole==1){
+                    this.value='销售经理'
+                }else if(res.data.userrole==10){
                     this.value='管理员'
                 }else if(res.data.userrole==20){
                     this.value='销售组长'
@@ -426,18 +469,10 @@ export default {
                 this.paidan_status=res.data.paidan_status
                 this.post_status=res.data.post_status
                 this.state=res.data.state
-                // if(res.data.state==1){
-                //     this.state='在岗'
-                // }else if(res.data.state==2){
-                //     this.state='请假'
-                // }else if(res.data.state==4){
-                //     this.state='离职'
-                // }else if(res.data.state==5){
-                //     this.state='删除'
-                // }
                 this.phoneNode=res.datauserphnumber
                 this.phoneId=res.data.userphjobno
                 this.userdptname=res.data.userdptname
+                this.userdeptid=res.data.userdeptid
             })
         },
         changeStaff(){
@@ -445,6 +480,8 @@ export default {
             if(this.value=='游客'){
                 this.value=0
             }else if(this.value=='管理员'){
+                this.value=10
+            }else if(this.value=='销售经理'){
                 this.value=1
             }else if(this.value=='销售组长'){
                 this.value=20
@@ -464,12 +501,12 @@ export default {
                 paidan_status:this.paidan_status,
                 post_status:this.post_status,
                 userphnumber:this.phoneNode,
+                userdeptid:this.userdeptid,
                 userphjobno:this.phoneId,
                 state:this.state,
+                resdeptid:this.deptArr.toString(),
                 userdptname:this.userdptname,
             }
-            // 7893136
-            // jiaoiiu  7893138 renli 7893137
             this.$axios({
                 headers:{'Content-Type':'application/x-www-form-urlencoded'},
                 method: 'post',
@@ -510,6 +547,7 @@ export default {
             this.post_status=''
             this.state=''
             this.userdptname=''
+            this.userdeptid=''
         },
         handleSizeChange(val){
             //每页数据条数
@@ -544,6 +582,7 @@ export default {
         }
     },
     mounted(){
+        this.getDepts()
         this.getDicts()
         this.getUsers()
         this.height=$('.page').offset().top-$('.table').offset().top
